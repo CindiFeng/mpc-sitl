@@ -1,0 +1,72 @@
+{
+  "uav_mass": 1,
+  "uav_inertia": [
+    [
+      0.020,
+      0.003,
+      -0.005
+    ],
+    [
+      0.003,
+      0.010,
+      0.002
+    ],
+    [
+      -0.005,
+      0.002,
+      0.030
+    ]
+  ],
+  "pld_mass": 0.2,
+  "cable_len": 1,
+  "arm_len": 0.3,
+  "mission": {
+    "uav_pos": [
+      [
+        -0.2,
+        3,
+        -1.7
+      ]
+    ],
+    "pld_rel_pos": [
+      [
+        0,
+        0
+      ]
+    ],
+    "uav_vel": [
+      [
+        0,
+        0,
+        0
+      ]
+    ],
+    "pld_rel_vel": [
+      [
+        0,
+        0
+      ]
+    ]
+  }, 
+  "control": {
+    "k_att": 1.0,
+    "k_ang_vel": 1.0,
+    "sampleTime": 0.1,
+    "predictionHorizon": 15,
+    "controlHorizon": 7,
+    "outputWeights": [[5, 3, 3, 3]],
+    "mvRatesWeights": [[0.01,0.03,0.05]],
+    "mvWeights": [[0.1,0.3,0.9]],
+    "cost_swing": 1,
+    "cost_in": 0.1,
+    "cost_inRate": 0.2,
+    "cost_nav": 0.5,
+    "cost_nav_N": 1,
+    "cost_nav_k": 1,
+    "cost_pf": 1.2
+  },
+  "obstacle":{
+    "bo": 0.05,
+    "be": 0.2
+  }
+}
