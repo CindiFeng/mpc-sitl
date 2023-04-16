@@ -58,7 +58,7 @@ static const casadi_int casadi_s2[5] = {1, 1, 0, 1, 0};
 
 /* sl_drone_cost_ext_cost_e_fun_jac:(i0[10],i1[],i2[],i3[])->(o0,o1[10]) */
 static int casadi_f0(const casadi_real** arg, casadi_real** res, casadi_int* iw, casadi_real* w, int mem) {
-  casadi_real a0, a1, a2, a3, a4, a5, a6, a7;
+  casadi_real a0, a1, a2, a3, a4;
   a0=-2.0000000000000001e-01;
   a1=arg[0]? arg[0][2] : 0;
   a0=(a0-a1);
@@ -75,36 +75,28 @@ static int casadi_f0(const casadi_real** arg, casadi_real** res, casadi_int* iw,
   a1=(a1+a4);
   a4=9.;
   a1=(a1/a4);
-  a4=arg[0]? arg[0][0] : 0;
-  a5=casadi_sq(a4);
-  a6=arg[0]? arg[0][1] : 0;
-  a7=casadi_sq(a6);
-  a5=(a5+a7);
-  a1=(a1+a5);
   if (res[0]!=0) res[0][0]=a1;
-  a4=(a4+a4);
-  if (res[1]!=0) res[1][0]=a4;
-  a6=(a6+a6);
-  if (res[1]!=0) res[1][1]=a6;
-  a6=1.1111111111111110e-01;
+  a1=0.;
+  if (res[1]!=0) res[1][0]=a1;
+  if (res[1]!=0) res[1][1]=a1;
+  a4=1.1111111111111110e-01;
   a0=(a0+a0);
-  a0=(a6*a0);
+  a0=(a4*a0);
   a0=(-a0);
   if (res[1]!=0) res[1][2]=a0;
   a2=(a2+a2);
-  a2=(a6*a2);
+  a2=(a4*a2);
   a2=(-a2);
   if (res[1]!=0) res[1][3]=a2;
   a3=(a3+a3);
-  a6=(a6*a3);
-  a6=(-a6);
-  if (res[1]!=0) res[1][4]=a6;
-  a6=0.;
-  if (res[1]!=0) res[1][5]=a6;
-  if (res[1]!=0) res[1][6]=a6;
-  if (res[1]!=0) res[1][7]=a6;
-  if (res[1]!=0) res[1][8]=a6;
-  if (res[1]!=0) res[1][9]=a6;
+  a4=(a4*a3);
+  a4=(-a4);
+  if (res[1]!=0) res[1][4]=a4;
+  if (res[1]!=0) res[1][5]=a1;
+  if (res[1]!=0) res[1][6]=a1;
+  if (res[1]!=0) res[1][7]=a1;
+  if (res[1]!=0) res[1][8]=a1;
+  if (res[1]!=0) res[1][9]=a1;
   return 0;
 }
 

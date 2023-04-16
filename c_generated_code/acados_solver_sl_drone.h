@@ -64,9 +64,9 @@
 #define SL_DRONE_NY     0
 #define SL_DRONE_NYN    0
 #define SL_DRONE_N      15
-#define SL_DRONE_NH     0
+#define SL_DRONE_NH     9
 #define SL_DRONE_NPHI   0
-#define SL_DRONE_NHN    0
+#define SL_DRONE_NHN    9
 #define SL_DRONE_NPHIN  0
 #define SL_DRONE_NR     0
 
@@ -119,9 +119,15 @@ typedef struct sl_drone_solver_capsule
     external_function_param_casadi ext_cost_e_fun_jac_hess;
 
     // constraints
+    external_function_param_casadi *nl_constr_h_fun_jac;
+    external_function_param_casadi *nl_constr_h_fun;
+    external_function_param_casadi *nl_constr_h_fun_jac_hess;
 
 
 
+    external_function_param_casadi nl_constr_h_e_fun_jac;
+    external_function_param_casadi nl_constr_h_e_fun;
+    external_function_param_casadi nl_constr_h_e_fun_jac_hess;
 
 } sl_drone_solver_capsule;
 

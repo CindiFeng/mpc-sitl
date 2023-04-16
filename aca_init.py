@@ -36,7 +36,7 @@ sim = {
     "g" : 9.80665,
     "grav" : np.array([0, 0, 9.80665]).reshape(3,1),
     "workspace" : np.array([[-0.6, -1, -2],   # min x, y, z
-                            [0.3,  10,  0]]),  # max x, y, z
+                            [ 0.3,  10,  0]]),  # max x, y, z
     "obs_pos" : np.array([-0.4, 1.5, -0.7]).reshape(3,1),
     "obs_dim" : np.array([0.68, 0.55, 0.9]),
     "duration" : 6,
@@ -101,16 +101,18 @@ ocp = {
     'constr_type' : 'BGH',
     'hessian_approx' : 'EXACT',
     'regularize_method' : 'NO_REGULARIZE',
+    'levenberg_marquardt' : 1e-2,
     'integrator_type' : 'ERK',
+    'sim_method_num_stages' : 4,
     'nlp_solver_type' : 'SQP',
-    'nlp_solver_max_iter' : 100, 
+    'nlp_solver_max_iter' : 1000, 
     'nlp_solver_tol_stat' : 1e-6,
     'nlp_solver_tol_eq': 1e-6, 
     'nlp_solver_tol_ineq' : 1e-6, 
     'nlp_solver_tol_comp' : 1e-6,
     'nlp_solver_ext_qp_res' : 1, 
     'qp_solver' : 'PARTIAL_CONDENSING_HPIPM',
-    'qp_solver_max_iter' : 50,
+    'qp_solver_iter_max' : 500,
     'qp_solver_cond_ric_alg' : 0, 
     'qp_solver_ric_alg' : 0, 
     'qp_solver_warm_start' : 2

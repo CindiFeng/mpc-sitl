@@ -45,8 +45,8 @@ def gen_ocp_model() -> AcadosModel:
     model.cost_expr_ext_cost = cost_expr_ext_cost
     model.cost_expr_ext_cost_e = cost_expr_ext_cost_e
 
-    # model.con_h_expr = con_h_expr
-    # model.con_h_expr_e = con_h_expr
+    model.con_h_expr = con_h_expr
+    model.con_h_expr_e = con_h_expr
     # model.Jbx = Jbx
 
     return model
@@ -74,41 +74,46 @@ def main():
     ocp.cost.cost_type_e = init.ocp['cost_type_e']
 
     # set constraints
-    # lh = np.vstack((np.ones((2,1)),
-    #                init.sim['workspace'][0,:].T + np.array([[init.param['arm_len']],[init.param['arm_len']],[0]]),
-    #                init.sim['workspace'][0,:].T,
-    #                -1))
-    # uh = np.vstack((30 * np.ones((2,1)),
-    #                 init.sim['workspace'][1,:].T - np.array([[init.param['arm_len']],[init.param['arm_len']],[0]]),
-    #                 init.sim['workspace'][1,:].T,
-    #                 init.param['cable_len']^2))
-    lh = -np.array([0])
-    uh = np.array([5])
+    lh = np.concatenate((np.ones((2,)),
+                         init.sim['workspace'][0,:] + np.array([init.params['arm_len'],init.params['arm_len'],0]),
+                         init.sim['workspace'][0,:],
+                         np.array([-1])))
+    uh = np.concatenate((30 * np.ones((2,)),
+                         init.sim['workspace'][1,:] - np.array([init.params['arm_len'],init.params['arm_len'],0]),
+                         init.sim['workspace'][1,:],
+                         np.array([init.params['cable_len']^2])))
+    ocp.constraints.constr_type = init.ocp['constr_type']
+    ocp.constraints.lh = lh
+    ocp.constraints.uh = uh
+    ocp.constraints.constr_type_e = init.ocp['constr_type']
+    ocp.constraints.lh_e = lh
+    ocp.constraints.uh_e = uh 
+    
     x0 = np.concatenate((init.ics['pld_rel_pos'],
                          init.ics['uav_pos'],
                          init.ics['pld_rel_vel'],
                          init.ics['uav_vel']))
-    # ocp.constraints.constr_type = init.ocp['constr_type']
-    # ocp.constraints.constr_type_e = init.ocp['constr_type']
-    # ocp.constraints.lh = lh
-    # ocp.constraints.uh = uh
-    # ocp.constraints.lh_e = lh
-    # ocp.constraints.uh_e = uh
     ocp.constraints.x0 = x0
 
     # solver options
     ocp.solver_options.integrator_type = init.ocp['integrator_type'] # dynamics
+    ocp.solver_options.sim_method_num_stages = init.ocp['sim_method_num_stages']
     ocp.solver_options.tf = Tf # or: Ts, shooting_nodes, time_steps
-    time_steps = Ts * np.ones((N,))
-    ocp.solver_options.time_steps = time_steps
-    
+    # time_steps = Ts * np.ones((N,))
+    # ocp.solver_options.time_steps = time_steps
+    ocp.solver_options.levenberg_marquardt = init.ocp['levenberg_marquardt']
     ocp.solver_options.hessian_approx = init.ocp['hessian_approx']
 
     ocp.solver_options.nlp_solver_type = init.ocp['nlp_solver_type']
+    ocp.solver_options.nlp_solver_max_iter = init.ocp['nlp_solver_max_iter']
+    ocp.solver_options.nlp_solver_tol_eq = init.ocp['nlp_solver_tol_eq']
+    ocp.solver_options.nlp_solver_tol_ineq = init.ocp['nlp_solver_tol_ineq']
     ocp.solver_options.regularize_method = init.ocp['regularize_method']
 
     ocp.solver_options.qp_solver = init.ocp['qp_solver'] 
-    ocp.solver_options.qp_solver_cond_N = N
+    if init.ocp['qp_solver'] == 'PARTIAL_CONDENSING_HPIPM':
+        ocp.solver_options.qp_solver_cond_N = N
+    ocp.solver_options.qp_solver_iter_max = init.ocp['qp_solver_iter_max']
 
     # create solver class
     solver_json = 'acados_ocp_' + model.name + '.json'
@@ -128,6 +133,14 @@ def main():
 
     # ocp_solver.print_statistics() # encapsulates: stat = ocp_solver.get_stats("statistics")
 
+    # initialize solver
+    for stage in range(N + 1):
+        ocp_solver.set(stage, "x", x_cur)
+
+    u0 = -init.params["derived"]["sys_weight"]
+    for stage in range(N):
+        ocp_solver.set(stage, "u", u0)
+
     # closed loop
     for i in range(Nsim):
 ##################################################
@@ -144,7 +157,10 @@ def main():
     
         status = ocp_solver.solve() 
         if status != 0:
-            raise RuntimeError("Solver status {}. break".format(status)) 
+            if i > 0: 
+                plot2d.plot(simX[:i+1,:],simU[:i,:],init)
+            raise Exception(f'acados returned status {status}.')
+
         
         simU[i,:] = ocp_solver.get(0,"u")
 #################################################

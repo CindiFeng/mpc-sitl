@@ -56,20 +56,65 @@ casadi_real casadi_sq(casadi_real x) { return x*x;}
 static const casadi_int casadi_s0[14] = {10, 1, 0, 10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
 static const casadi_int casadi_s1[7] = {3, 1, 0, 3, 0, 1, 2};
 static const casadi_int casadi_s2[3] = {0, 0, 0};
-static const casadi_int casadi_s3[5] = {1, 1, 0, 1, 0};
+static const casadi_int casadi_s3[13] = {9, 1, 0, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8};
 
-/* sl_drone_constr_h_fun:(i0[10],i1[3],i2[],i3[])->(o0) */
+/* sl_drone_constr_h_fun:(i0[10],i1[3],i2[],i3[])->(o0[9]) */
 static int casadi_f0(const casadi_real** arg, casadi_real** res, casadi_int* iw, casadi_real* w, int mem) {
-  casadi_real a0, a1;
-  a0=arg[0]? arg[0][7] : 0;
-  a0=casadi_sq(a0);
-  a1=arg[0]? arg[0][8] : 0;
-  a1=casadi_sq(a1);
-  a0=(a0+a1);
-  a1=arg[0]? arg[0][9] : 0;
-  a1=casadi_sq(a1);
-  a0=(a0+a1);
-  if (res[0]!=0) res[0][0]=a0;
+  casadi_real a0, a1, a10, a11, a12, a13, a14, a15, a16, a2, a3, a4, a5, a6, a7, a8, a9;
+  a0=2.4498411712345343e+00;
+  a1=arg[0]? arg[0][2] : 0;
+  a2=arg[0]? arg[0][0] : 0;
+  a3=(a1+a2);
+  a4=-4.0000000000000002e-01;
+  a5=(a3-a4);
+  a6=(a0*a5);
+  a6=(a6*a5);
+  a5=3.6100249311159209e+00;
+  a7=arg[0]? arg[0][3] : 0;
+  a8=arg[0]? arg[0][1] : 0;
+  a9=(a7+a8);
+  a10=1.5000000000000000e+00;
+  a11=(a9-a10);
+  a12=(a5*a11);
+  a12=(a12*a11);
+  a6=(a6+a12);
+  a12=1.4536103098405859e+00;
+  a11=arg[0]? arg[0][4] : 0;
+  a13=1.;
+  a14=casadi_sq(a2);
+  a15=casadi_sq(a8);
+  a14=(a14+a15);
+  a13=(a13-a14);
+  a13=sqrt(a13);
+  a13=(a11+a13);
+  a14=-6.9999999999999996e-01;
+  a15=(a13-a14);
+  a16=(a12*a15);
+  a16=(a16*a15);
+  a6=(a6+a16);
+  if (res[0]!=0) res[0][0]=a6;
+  a4=(a1-a4);
+  a0=(a0*a4);
+  a0=(a0*a4);
+  a10=(a7-a10);
+  a5=(a5*a10);
+  a5=(a5*a10);
+  a0=(a0+a5);
+  a14=(a11-a14);
+  a12=(a12*a14);
+  a12=(a12*a14);
+  a0=(a0+a12);
+  if (res[0]!=0) res[0][1]=a0;
+  if (res[0]!=0) res[0][2]=a1;
+  if (res[0]!=0) res[0][3]=a7;
+  if (res[0]!=0) res[0][4]=a11;
+  if (res[0]!=0) res[0][5]=a3;
+  if (res[0]!=0) res[0][6]=a9;
+  if (res[0]!=0) res[0][7]=a13;
+  a2=casadi_sq(a2);
+  a8=casadi_sq(a8);
+  a2=(a2+a8);
+  if (res[0]!=0) res[0][8]=a2;
   return 0;
 }
 

@@ -57,7 +57,7 @@
     "outputWeights": [[5, 3, 3, 3]],
     "mvRatesWeights": [[0.01,0.03,0.05]],
     "mvWeights": [[0.1,0.3,0.9]],
-    "cost_swing": 1,
+    "cost_swing": 0,
     "cost_in": 0.1,
     "cost_inRate": 0.2,
     "cost_nav": 0.5,

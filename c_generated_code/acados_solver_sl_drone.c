@@ -270,6 +270,8 @@ ocp_nlp_dims* sl_drone_acados_create_2_create_and_set_dimensions(sl_drone_solver
 
     for (int i = 0; i < N; i++)
     {
+        ocp_nlp_dims_set_constraints(nlp_config, nlp_dims, i, "nh", &nh[i]);
+        ocp_nlp_dims_set_constraints(nlp_config, nlp_dims, i, "nsh", &nsh[i]);
     }
     ocp_nlp_dims_set_constraints(nlp_config, nlp_dims, N, "nh", &nh[N]);
     ocp_nlp_dims_set_constraints(nlp_config, nlp_dims, N, "nsh", &nsh[N]);
@@ -300,6 +302,26 @@ void sl_drone_acados_create_3_create_and_set_functions(sl_drone_solver_capsule* 
     }while(false)
 
 
+    // constraints.constr_type == "BGH" and dims.nh > 0
+    capsule->nl_constr_h_fun_jac = (external_function_param_casadi *) malloc(sizeof(external_function_param_casadi)*N);
+    for (int i = 0; i < N; i++) {
+        MAP_CASADI_FNC(nl_constr_h_fun_jac[i], sl_drone_constr_h_fun_jac_uxt_zt);
+    }
+    capsule->nl_constr_h_fun = (external_function_param_casadi *) malloc(sizeof(external_function_param_casadi)*N);
+    for (int i = 0; i < N; i++) {
+        MAP_CASADI_FNC(nl_constr_h_fun[i], sl_drone_constr_h_fun);
+    }
+    
+    capsule->nl_constr_h_fun_jac_hess = (external_function_param_casadi *) malloc(sizeof(external_function_param_casadi)*N);
+    for (int i = 0; i < N; i++) {
+        MAP_CASADI_FNC(nl_constr_h_fun_jac_hess[i], sl_drone_constr_h_fun_jac_uxt_zt_hess);
+    }
+    
+
+    MAP_CASADI_FNC(nl_constr_h_e_fun_jac, sl_drone_constr_h_e_fun_jac_uxt_zt);
+    MAP_CASADI_FNC(nl_constr_h_e_fun, sl_drone_constr_h_e_fun);
+    MAP_CASADI_FNC(nl_constr_h_e_fun_jac_hess, sl_drone_constr_h_e_fun_jac_uxt_zt_hess);
+    
 
 
     // explicit ode
@@ -482,6 +504,45 @@ void sl_drone_acados_create_5_set_nlp_in(sl_drone_solver_capsule* capsule, const
 
 
 
+    // set up nonlinear constraints for stage 0 to N-1
+    double* luh = calloc(2*NH, sizeof(double));
+    double* lh = luh;
+    double* uh = luh + NH;
+
+    
+    lh[0] = 1;
+    lh[1] = 1;
+    lh[2] = -0.3;
+    lh[3] = -0.7;
+    lh[4] = -2;
+    lh[5] = -0.6;
+    lh[6] = -1;
+    lh[7] = -2;
+    lh[8] = -1;
+
+    
+    uh[0] = 30;
+    uh[1] = 30;
+    uh[3] = 9.7;
+    uh[5] = 0.3;
+    uh[6] = 10;
+    uh[8] = 3;
+
+    for (int i = 0; i < N; i++)
+    {
+        // nonlinear constraints for stages 0 to N-1
+        ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, i, "nl_constr_h_fun_jac",
+                                      &capsule->nl_constr_h_fun_jac[i]);
+        ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, i, "nl_constr_h_fun",
+                                      &capsule->nl_constr_h_fun[i]);
+        
+        ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, i,
+                                      "nl_constr_h_fun_jac_hess", &capsule->nl_constr_h_fun_jac_hess[i]);
+        
+        ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, i, "lh", lh);
+        ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, i, "uh", uh);
+    }
+    free(luh);
 
 
 
@@ -499,6 +560,38 @@ void sl_drone_acados_create_5_set_nlp_in(sl_drone_solver_capsule* capsule, const
 
 
 
+    // set up nonlinear constraints for last stage
+    double* luh_e = calloc(2*NHN, sizeof(double));
+    double* lh_e = luh_e;
+    double* uh_e = luh_e + NHN;
+    
+    lh_e[0] = 1;
+    lh_e[1] = 1;
+    lh_e[2] = -0.3;
+    lh_e[3] = -0.7;
+    lh_e[4] = -2;
+    lh_e[5] = -0.6;
+    lh_e[6] = -1;
+    lh_e[7] = -2;
+    lh_e[8] = -1;
+
+    
+    uh_e[0] = 30;
+    uh_e[1] = 30;
+    uh_e[3] = 9.7;
+    uh_e[5] = 0.3;
+    uh_e[6] = 10;
+    uh_e[8] = 3;
+
+    ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, N, "nl_constr_h_fun_jac", &capsule->nl_constr_h_e_fun_jac);
+    ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, N, "nl_constr_h_fun", &capsule->nl_constr_h_e_fun);
+    
+    ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, N, "nl_constr_h_fun_jac_hess",
+                                  &capsule->nl_constr_h_e_fun_jac_hess);
+    
+    ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, N, "lh", lh_e);
+    ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, N, "uh", uh_e);
+    free(luh_e);
 
 
 }
@@ -562,7 +655,7 @@ void sl_drone_acados_create_6_set_opts(sl_drone_solver_capsule* capsule)
     double nlp_solver_step_length = 1;
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "step_length", &nlp_solver_step_length);
 
-    double levenberg_marquardt = 0;
+    double levenberg_marquardt = 0.01;
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "levenberg_marquardt", &levenberg_marquardt);
 
     /* options QP solver */
@@ -591,13 +684,13 @@ void sl_drone_acados_create_6_set_opts(sl_drone_solver_capsule* capsule)
     double nlp_solver_tol_comp = 0.000001;
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "tol_comp", &nlp_solver_tol_comp);
 
-    int nlp_solver_max_iter = 100;
+    int nlp_solver_max_iter = 1000;
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "max_iter", &nlp_solver_max_iter);
 
     int initialize_t_slacks = 0;
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "initialize_t_slacks", &initialize_t_slacks);
 
-    int qp_solver_iter_max = 50;
+    int qp_solver_iter_max = 500;
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qp_iter_max", &qp_solver_iter_max);
 
 int print_level = 0;
@@ -816,6 +909,9 @@ int sl_drone_acados_update_params(sl_drone_solver_capsule* capsule, int stage, d
 
         // constraints
     
+        capsule->nl_constr_h_fun_jac[stage].set_param(capsule->nl_constr_h_fun_jac+stage, p);
+        capsule->nl_constr_h_fun[stage].set_param(capsule->nl_constr_h_fun+stage, p);
+        capsule->nl_constr_h_fun_jac_hess[stage].set_param(capsule->nl_constr_h_fun_jac_hess+stage, p);
 
         // cost
         if (stage == 0)
@@ -842,6 +938,10 @@ int sl_drone_acados_update_params(sl_drone_solver_capsule* capsule, int stage, d
         capsule->ext_cost_e_fun_jac_hess.set_param(&capsule->ext_cost_e_fun_jac_hess, p);
     
         // constraints
+    
+        capsule->nl_constr_h_e_fun_jac.set_param(&capsule->nl_constr_h_e_fun_jac, p);
+        capsule->nl_constr_h_e_fun.set_param(&capsule->nl_constr_h_e_fun, p);
+        capsule->nl_constr_h_e_fun_jac_hess.set_param(&capsule->nl_constr_h_e_fun_jac_hess, p);
     
     }
 
@@ -925,6 +1025,21 @@ int sl_drone_acados_free(sl_drone_solver_capsule* capsule)
     external_function_param_casadi_free(&capsule->ext_cost_e_fun_jac_hess);
 
     // constraints
+    for (int i = 0; i < N; i++)
+    {
+        external_function_param_casadi_free(&capsule->nl_constr_h_fun_jac[i]);
+        external_function_param_casadi_free(&capsule->nl_constr_h_fun[i]);
+    }
+    for (int i = 0; i < N; i++)
+    {
+        external_function_param_casadi_free(&capsule->nl_constr_h_fun_jac_hess[i]);
+    }
+    free(capsule->nl_constr_h_fun_jac);
+    free(capsule->nl_constr_h_fun);
+    free(capsule->nl_constr_h_fun_jac_hess);
+    external_function_param_casadi_free(&capsule->nl_constr_h_e_fun_jac);
+    external_function_param_casadi_free(&capsule->nl_constr_h_e_fun);
+    external_function_param_casadi_free(&capsule->nl_constr_h_e_fun_jac_hess);
 
     return 0;
 }
@@ -938,7 +1053,7 @@ void sl_drone_acados_print_stats(sl_drone_solver_capsule* capsule)
     ocp_nlp_get(capsule->nlp_config, capsule->nlp_solver, "stat_m", &stat_m);
 
     
-    double stat[1200];
+    double stat[12000];
     ocp_nlp_get(capsule->nlp_config, capsule->nlp_solver, "statistics", stat);
 
     int nrow = sqp_iter+1 < stat_m ? sqp_iter+1 : stat_m;

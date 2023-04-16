@@ -77,18 +77,14 @@ def ineq(x_cur,init):
                                                 pld_rel_pos.T @ pld_rel_pos))
 
     uav_obs_vec = uav_pos - init.sim["obs_pos"]
-    uav_obs_dist = uav_obs_vec.T @ ellipsoid_weight @ uav_obs_vec - 1
+    uav_obs_dist = uav_obs_vec.T @ ellipsoid_weight @ uav_obs_vec 
     pld_obs_vec = pld_abs_pos - init.sim["obs_pos"]
-    pld_obs_dist = pld_obs_vec.T @ ellipsoid_weight @ pld_obs_vec - 1
+    pld_obs_dist = pld_obs_vec.T @ ellipsoid_weight @ pld_obs_vec 
 
     # payload distance
     pld_rel_dist = pld_rel_pos.T @ pld_rel_pos
 
-    # cineq = ca.vertcat(pld_obs_dist, uav_obs_dist, pld_abs_pos, pld_rel_dist)
-    cineq = sq_norm(x_cur[init.idx["x"]["uav_vel"][0]:init.idx["x"]["uav_vel"][1]])
-    
-    uav_speed = -sq_norm(x_cur[init.idx['x']['uav_vel'][0]:init.idx['x']['uav_vel'][1]])
-    cineq = uav_speed
+    cineq = ca.vertcat(pld_obs_dist, uav_obs_dist, uav_pos, pld_abs_pos, pld_rel_dist)
     return cineq 
 
 def cost(x_cur,u_cur,init):
