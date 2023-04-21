@@ -17,16 +17,16 @@ with open (params_filepath, "r") as f:
                                 # nested row vectors in lists
 
 for i in params["mission"]: 
-    n = len(params["mission"][i][0])
-    params["mission"][i] = np.array(params["mission"][i]).reshape(n,)
+    n = len(params["mission"][i][0]) 
+    params["mission"][i] = np.array(params["mission"][i]).reshape(n,1) 
                                 
 with open (ics_filepath, "r") as f:
     ics = js.loads(f.read())
 
 # turn lists into column vectors
 for i in ics: 
-    n = len(ics[i])
-    ics[i] = np.array(ics[i]).reshape(n,)
+    n = len(ics[i]) # size of list
+    ics[i] = np.array(ics[i]).reshape(n,1) 
 
 # with open (sim_filepath, "r") as f:
 #     sim_ = js.loads(f.read())  
@@ -36,7 +36,7 @@ sim = {
     "g" : 9.80665,
     "grav" : np.array([0, 0, 9.80665]).reshape(3,1),
     "workspace" : np.array([[-0.6, -1, -2],   # min x, y, z
-                            [ 0.3,  10,  0]]),  # max x, y, z
+                            [0.3,  10,  0]]),  # max x, y, z
     "obs_pos" : np.array([-0.4, 1.5, -0.7]).reshape(3,1),
     "obs_dim" : np.array([0.68, 0.55, 0.9]),
     "duration" : 6,
@@ -53,8 +53,7 @@ params["derived"] = derived
 # nlobj information 
 model = {
     "n_x" : 10,               # number of states
-    "n_u" : 3,                 # number of input
-    "name": 'sl_drone'
+    "n_u" : 3                 # number of input
 }
 model["n_p"] = model["n_x"] * 2 # number of parameters incl x0 and xref
 
@@ -95,25 +94,24 @@ idx = {
     "p" : p
 }
 
-ocp = {
-    'cost_type' : 'EXTERNAL',
-    'cost_type_e' : 'EXTERNAL',
-    'constr_type' : 'BGH',
-    'hessian_approx' : 'EXACT',
-    'regularize_method' : 'NO_REGULARIZE',
-    'levenberg_marquardt' : 1e-2,
-    'integrator_type' : 'ERK',
-    'sim_method_num_stages' : 4,
-    'nlp_solver_type' : 'SQP',
-    'nlp_solver_max_iter' : 1000, 
-    'nlp_solver_tol_stat' : 1e-6,
-    'nlp_solver_tol_eq': 1e-6, 
-    'nlp_solver_tol_ineq' : 1e-6, 
-    'nlp_solver_tol_comp' : 1e-6,
-    'nlp_solver_ext_qp_res' : 1, 
-    'qp_solver' : 'PARTIAL_CONDENSING_HPIPM',
-    'qp_solver_iter_max' : 500,
-    'qp_solver_cond_ric_alg' : 0, 
-    'qp_solver_ric_alg' : 0, 
-    'qp_solver_warm_start' : 2
-}
+# loading mat files
+# from scipy import io
+# def load_from_mat(filename=None, data={}, loaded=None):
+#     if filename:
+#         vrs = io.whosmat(filename)
+#         name = vrs[0][0]
+#         loaded = io.loadmat(filename,struct_as_record=True)
+#         loaded = loaded[name]
+#     whats_inside = loaded.dtype.fields
+#     fields = list(whats_inside.keys())
+#     for field in fields:
+#         if len(loaded[0,0][field].dtype) > 0: # it's a struct
+#             data[field] = {}
+#             data[field] = load_from_mat(data=data[field], loaded=loaded[0,0][field])
+#         else: # it's a variable
+#             data[field] = loaded[0,0][field]
+#     return data
+
+# # and then just call the function
+# with open (sim_filepath, "r") as f:
+#     data = load_from_mat(filename=f.read()) # Don't worry about the other input vars (data, loaded), there are used in the recursion.
