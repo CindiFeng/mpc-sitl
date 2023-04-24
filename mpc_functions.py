@@ -93,14 +93,14 @@ def costFcn(x_cur,u_cur,u_prev,P,init):
     x_start = P[init.idx["p"]["x0"][0]:init.idx["p"]["x0"][1]]
     uav_start = x_start[init.idx["x"]["uav_pos"][0]:init.idx["x"]["uav_pos"][1]]
 
-    denom = util_sq_norm(uav_goal - uav_start) # cannot start at goal!!!
-    cost_nav = init.params["control"]["cost_nav"] * util_sq_norm(uav_goal-uav_pos) / denom
+    denom = util_ca_sq_norm(uav_goal - uav_start) # cannot start at goal!!!
+    cost_nav = init.params["control"]["cost_nav"] * util_ca_sq_norm(uav_goal-uav_pos) / denom
 
-    cost_nav_k = init.params["control"]["cost_nav_k"] * util_sq_norm(uav_goal - uav_pos)
+    cost_nav_k = init.params["control"]["cost_nav_k"] * util_ca_sq_norm(uav_goal - uav_pos)
 
-    cost_swing = init.params["control"]["cost_swing"] * util_sq_norm(pld_rel_pos)
+    cost_swing = init.params["control"]["cost_swing"] * util_ca_sq_norm(pld_rel_pos)
 
-    cost_in = init.params["control"]["cost_in"] * util_sq_norm(u_cur + init.params["derived"]["sys_weight"])
+    cost_in = init.params["control"]["cost_in"] * util_ca_sq_norm(u_cur + init.params["derived"]["sys_weight"])
 
     # cost_inRate = init.params["control"]["cost_inRate"] * np.sum((u_cur - u_prev)**2)
 
@@ -108,24 +108,25 @@ def costFcn(x_cur,u_cur,u_prev,P,init):
 
     return J
 
-def att_extract(f_ctrl): 
-    """
-    Takes control input from mpc solver to derive the desired angular velocities
-    Input: F_ctrl (np.array, 1x3) 
-    Output: omega_d (np.array, 3x1)
-    """
-    f_ctrl = f_ctrl.reshape((3,1))
-    psi_des = 0 # command yaw angle 
-    n_z = -f_ctrl / util_sq_norm(f_ctrl)**0.5 # assume lift along the -z axis
-    n_x = np.array([np.cos(psi_des), np.sin(psi_des), 
-                    -(np.cos(psi_des) * n_z[0] + np.sin(psi_des) * 
-                      n_z[1]) / n_z[2]]).reshape((3,1))
-    n_x = n_x / util_sq_norm(n_x)**0.5
-    n_y = util_hat(n_z) @ n_x / util_sq_norm(util_hat(n_z) @ n_x)**0.5
-    R_des = np.hstack((n_x, n_y, n_z))
+# def att_extract(f_ctrl): 
+#     """
+#     Takes control input from mpc solver to derive the desired angular velocities
+#     Input: F_ctrl (np.array, 1x3) 
+#     Output: omega_d (np.array, 3x1)
+#     """
+#     f_ctrl = f_ctrl.reshape((3,1))
+#     psi_des = 0 # command yaw angle 
+#     n_z = -f_ctrl / util_ca_sq_norm(f_ctrl)**0.5 # assume lift along the -z axis
+#     n_x = np.array([np.cos(psi_des), np.sin(psi_des), 
+#                     -(np.cos(psi_des) * n_z[0] + np.sin(psi_des) * 
+#                       n_z[1]) / n_z[2]]).reshape((3,1))
+#     n_x = n_x / util_ca_sq_norm(n_x)**0.5
+#     n_y = util_hat(n_z) @ n_x / util_ca_sq_norm(util_hat(n_z) @ n_x)**0.5
+#     R_des = np.hstack((n_x, n_y, n_z))
 
-    Rd_des = 0 # TODO: derivative of rotation matrix 
-    ang_vel_d = util_vee(R_des.T @ Rd_des)
+#     Rd_des = 0 # TODO: derivative of rotation matrix 
+#     ang_vel_d = util_vee(R_des.T @ Rd_des)
+#     return(n_z[2], ang_vel_d)
     
 
 def util_RK4(f,Ts,x_current,con):
@@ -151,9 +152,9 @@ def util_vee(ss):
     """
     vee function to map a skew-symmetric matrix to a vector
     """
-    if (ss.shape != (3,3) or ss[2,1] != -ss[1,2] or ss[0,2] != -ss[2,0] 
-        or ss[0,1] != -ss[1,0]): 
-        raise Exception("The provided matrix is not skew symmetric.")
+    # if (ss.shape != (3,3) or ss[2,1] != -ss[1,2] or ss[0,2] != -ss[2,0] 
+    #     or ss[0,1] != -ss[1,0]): 
+    #     raise Exception("The provided matrix is not skew symmetric.")
     
     vec = np.array([ss[2,1], ss[0,2], ss[0,1]]).reshape(3,1)
 
@@ -163,10 +164,11 @@ def util_hat(v):
     """
     create skew symmetric matrix from vector
     """
+    v = v.reshape(3,)
     ss = np.array([0,-v[2],v[1],v[2],0,-v[0],-v[1],v[0],0]).reshape(3,3)
     return ss
 
-def util_sq_norm(a): 
+def util_ca_sq_norm(a): 
     """
     returns equivalent to MATLAB: sum(a.^2)
     """
@@ -176,6 +178,11 @@ def util_sq_norm(a):
     sq_norm = a.T @ a
 
     return sq_norm
+
+def util_norm(a):
+    r = max(a.shape)
+    a = a.reshape((r,1))
+    return (a.T @ a)**0.5
 
 def util_DM2Arr(dm):
     return np.array(dm.full())

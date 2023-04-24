@@ -1,5 +1,5 @@
 {
-  "uav_mass": 1,
+  "uav_mass": 1.8,
   "uav_inertia": [
     [
       0.020,
@@ -17,15 +17,15 @@
       0.030
     ]
   ],
-  "pld_mass": 0.2,
-  "cable_len": 1,
+  "pld_mass": 0.5,
+  "cable_len": 1.6,
   "arm_len": 0.3,
   "mission": {
     "uav_pos": [
       [
-        -0.2,
-        3,
-        -1.7
+        -1,
+        10,
+        -3.7
       ]
     ],
     "pld_rel_pos": [

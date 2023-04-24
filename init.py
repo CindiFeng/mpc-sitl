@@ -35,7 +35,7 @@ for i in ics:
 sim = {
     "g" : 9.80665,
     "grav" : np.array([0, 0, 9.80665]).reshape(3,1),
-    "workspace" : np.array([[-0.6, -1, -2],   # min x, y, z
+    "workspace" : np.array([[-0.6, -1, -5],   # min x, y, z
                             [0.3,  10,  0]]),  # max x, y, z
     "obs_pos" : np.array([-0.4, 1.5, -0.7]).reshape(3,1),
     "obs_dim" : np.array([0.68, 0.55, 0.9]),
