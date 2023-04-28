@@ -1,5 +1,5 @@
 {
-  "uav_mass": 1.8,
+  "uav_mass": 1.535,
   "uav_inertia": [
     [
       0.020,
@@ -18,14 +18,14 @@
     ]
   ],
   "pld_mass": 0.5,
-  "cable_len": 1.6,
+  "cable_len": 1.35,
   "arm_len": 0.3,
   "mission": {
     "uav_pos": [
       [
-        -1,
-        10,
-        -3.7
+        -0.2,
+        3,
+        -2.2
       ]
     ],
     "pld_rel_pos": [
@@ -57,7 +57,7 @@
     "outputWeights": [[5, 3, 3, 3]],
     "mvRatesWeights": [[0.01,0.03,0.05]],
     "mvWeights": [[0.1,0.3,0.9]],
-    "cost_swing": 1,
+    "cost_swing": 3,
     "cost_in": 0.01,
     "cost_inRate": 0.2,
     "cost_nav": 0.5,

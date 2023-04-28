@@ -4,11 +4,13 @@ import casadi as ca
 import init
 import mpc_functions as mpcFunc
 import numpy as np
+import pandas as pd
 import time
+from scipy.spatial.transform import Rotation as scipyR
 
 import rospy
 from geometry_msgs.msg import PoseStamped, TwistStamped
-from mavros_msgs.msg import Thrust
+from mavros_msgs.msg import Thrust, PositionTarget, AttitudeTarget
 from nav_msgs.msg import Odometry
 
 def gen_solver():
@@ -136,6 +138,8 @@ def gen_solver():
 
     input_min = -ca.inf*np.ones((init.model["n_u"],1))
     input_max = ca.inf*np.ones((init.model["n_u"],1))
+    input_max[0] = 15
+    input_max[1] = 15
     for i in range(init.model["n_u"]):
         lbx[n_X+i:n_XU:init.model["n_u"]] = input_min[i] #input lower limit
         ubx[n_X+i:n_XU:init.model["n_u"]] = input_max[i] #input upper limit
@@ -177,19 +181,14 @@ class runMPCNode():
         pub_freq = 10
         self.rate = rospy.Rate(pub_freq)
         self.pub_thrust = rospy.Publisher("/mavros/setpoint_attitude/thrust", Thrust, queue_size=1)
-        self.pub_ang_vel = rospy.Publisher("/mavros/setpoint_attitude/cmd_vel", TwistStamped, queue_size=1)
+        # self.pub_quat = rospy.Publisher("/mavros/setpoint_attitude/attitude", PoseStamped, queue_size=1)
+        self.pub_quat = rospy.Publisher("/mavros/setpoint_raw/attitude", AttitudeTarget, queue_size=1)
+        # self.pub_ang_vel = rospy.Publisher("/mavros/setpoint_raw/attitude", AttitudeTarget, queue_size=1)
+        self.pub_pos_raw = rospy.Publisher("/mavros/setpoint_raw/local", PositionTarget, queue_size=1)
         self.pub_hold = rospy.Publisher("/mavros/setpoint_position/local", PoseStamped, queue_size=1)
         self.pub_start = rospy.Publisher("/mavros/setpoint_position/local", PoseStamped, queue_size=1)
         
         # subscriber
-        # self.uav_pos = init.ics["uav_pos"] + 10
-        # self.uav_vel = init.ics["uav_vel"]
-        # self.pld_pos = 0
-        # self.pld_vel = 0
-        # self.pld_rel_pos = init.ics["pld_rel_pos"]
-        # self.pld_rel_vel = init.ics["pld_rel_vel"]
-        # self.uav_msg = Odometry()
-        # self.pld_msg = Odometry() 
         self.uav_odom = rospy.Subscriber('/ground_truth/uav/pose', Odometry, self.uav_callback)
         self.pld_odom = rospy.Subscriber('/ground_truth/payload/pose', Odometry, self.pld_callback)
 
@@ -208,22 +207,22 @@ class runMPCNode():
         # print('initial starting states:', self.sol_x)
         self.prev_R_des = 0
 
+        self.last_pos = 0
+
     def uav_callback(self,msg):
-        # self.uav_msg = msg
-        self.uav_pos = np.array([[msg.pose.pose.position.x],
-                                 [msg.pose.pose.position.y],
+        self.uav_pos = np.array([[msg.pose.pose.position.y],
+                                 [msg.pose.pose.position.x],
                                  [-msg.pose.pose.position.z]])
-        self.uav_vel = np.array([[msg.twist.twist.linear.x],
-                                 [msg.twist.twist.linear.y],
+        self.uav_vel = np.array([[msg.twist.twist.linear.y],
+                                 [msg.twist.twist.linear.x],
                                  [-msg.twist.twist.linear.z]])
 
     def pld_callback(self,msg):
-        # self.pld_msg = msg
-        self.pld_pos = np.array([[msg.pose.pose.position.x],
-                                 [msg.pose.pose.position.y],
+        self.pld_pos = np.array([[msg.pose.pose.position.y],
+                                 [msg.pose.pose.position.x],
                                  [-msg.pose.pose.position.z]])
-        self.pld_vel = np.array([[msg.twist.twist.linear.x],
-                                 [msg.twist.twist.linear.y],
+        self.pld_vel = np.array([[msg.twist.twist.linear.y],
+                                 [msg.twist.twist.linear.x],
                                  [-msg.twist.twist.linear.z]])
         pld_rel_pos = self.pld_pos - self.uav_pos
         self.pld_rel_pos = pld_rel_pos[0:2]
@@ -234,36 +233,62 @@ class runMPCNode():
         # derive control inputs to publish as thrust and angular velocities
 
         self.solve_mpc() # update ctrl input 
-        thrust, ang_vel = self.att_extract()
+        thrust, quat_des = self.att_extract()
+        print('thrust is: ', thrust)
+        print('quaternion is ', quat_des)
         if thrust < 0 or thrust > 1: 
             raise Exception("thrust cmd is out of bounds.")
 
         msg_thrust = Thrust()
-        msg_ang_vel = TwistStamped()
-        msg_thrust.thrust = thrust
-        msg_ang_vel.twist.angular.x = ang_vel[0]
-        msg_ang_vel.twist.angular.y = ang_vel[1]
-        msg_ang_vel.twist.angular.z = -ang_vel[2]
-        
-        # rospy.loginfo("publishing thrust %s and angular vel %s")
+        # msg_ang_vel = TwistStamped()
+        msg_thrust.thrust = 0.8
         self.pub_thrust.publish(msg_thrust)
-        self.pub_ang_vel.publish(msg_ang_vel)
+
+        # msg_force = PositionTarget()
+        # msg_force.coordinate_frame = 1
+        # msg_force.type_mask = 0b0000100000111111 # 0b0000001000000000
+        # f_ctrl = self.u[0,:] # extract the first control to be applied
+        # msg_force.acceleration_or_force.x = f_ctrl[1] / init.params["derived"]["sys_mass"]
+        # msg_force.acceleration_or_force.y = f_ctrl[0] / init.params["derived"]["sys_mass"]
+        # msg_force.acceleration_or_force.z = -f_ctrl[2] / init.params["derived"]["sys_mass"]
+        # self.pub_pos_raw.publish(msg_force)
+
+        # msg_ang_vel = AttitudeTarget()
+        # msg_ang_vel.type_mask = 0b10000000
+        # msg_ang_vel.body_rate.x = ang_vel[0]
+        # msg_ang_vel.body_rate.y = ang_vel[1]
+        # msg_ang_vel.body_rate.z = ang_vel[2]
+        # msg_ang_vel.thrust = thrust
+        # self.pub_ang_vel.publish(msg_ang_vel)
+
+        # msg_quat = PoseStamped()
+        # msg_quat.pose.orientation.x = quat_des[0]
+        # msg_quat.pose.orientation.y = quat_des[1]
+        # msg_quat.pose.orientation.z = quat_des[2]
+        # msg_quat.pose.orientation.w = quat_des[3]
+        msg_quat = AttitudeTarget()
+        msg_quat.type_mask = 0b00000111
+        msg_quat.orientation.x = quat_des[0]
+        msg_quat.orientation.y = quat_des[1]
+        msg_quat.orientation.z = quat_des[2]
+        msg_quat.orientation.w = quat_des[3]
+        self.pub_quat.publish(msg_quat)
 
     def hold_pos(self): 
         # publish command to hover at current position
 
         sp = PoseStamped()
-        sp.pose.position.x = self.uav_pos[0]
-        sp.pose.position.y = self.uav_pos[1]
-        sp.pose.position.z = -self.uav_pos[2]
+        sp.pose.position.x = self.last_pos[1]
+        sp.pose.position.y = self.last_pos[0]
+        sp.pose.position.z = -self.last_pos[2]
         self.pub_hold.publish(sp)
 
     def start_pos(self):
         # publish cmd to hover at initial position
 
         sp = PoseStamped()
-        sp.pose.position.x = init.ics["uav_pos"][0]
-        sp.pose.position.y = init.ics["uav_pos"][1]
+        sp.pose.position.x = init.ics["uav_pos"][1]
+        sp.pose.position.y = init.ics["uav_pos"][0]
         sp.pose.position.z = -init.ics["uav_pos"][2]
         self.pub_start.publish(sp)
 
@@ -302,17 +327,20 @@ class runMPCNode():
         )
 
         self.sol_x = mpcFunc.util_DM2Arr(sol['x'][0:n_X]).T
-        self.u = ca.reshape(sol['x'][n_X:], init.model["n_u"], Nu).T
+        self.u = mpcFunc.util_DM2Arr(ca.reshape(sol['x'][n_X:], 
+                                                init.model["n_u"], Nu).T)
     
-
     def att_extract(self): 
         # Takes control input from mpc solver to derive the desired angular velocities
 
-        f_ctrl = mpcFunc.util_DM2Arr(self.u[0,:].T) # extract the first control to be applied
+        f_ctrl = self.u[0,:].T # extract the first control to be applied
+        f_mag = mpcFunc.util_norm(f_ctrl)
+        thrust_norm = min((f_mag + 6)/42, 1)
+        
         psi_des = 0 # command yaw angle 
         
         # build rotation matrix using unit vectors
-        n_z = -f_ctrl / mpcFunc.util_norm(f_ctrl) # assume lift along the -z axis
+        n_z = (-f_ctrl / f_mag).reshape((3,1)) # assume lift along the -z axis
         n_x_tilde = np.array([np.cos(psi_des), np.sin(psi_des), 
                         -(np.cos(psi_des) * n_z[0,0] + np.sin(psi_des) * 
                         n_z[1,0]) / n_z[2,0]]).reshape((3,1))
@@ -320,13 +348,60 @@ class runMPCNode():
         n_y = mpcFunc.util_hat(n_z) @ n_x / mpcFunc.util_norm(mpcFunc.util_hat(n_z) @ n_x)
         R_des = np.hstack((n_x, n_y, n_z))
 
-        Rd_des = (R_des - self.prev_R_des)/init.params["control"]["sampleTime"] # TODO: derivative of rotation matrix 
-        self.prev_R_des = R_des
+        # Rd_des = (R_des - self.prev_R_des)/init.params["control"]["sampleTime"] 
+        # self.prev_R_des = R_des
 
-        ang_vel_d = mpcFunc.util_vee(R_des.T @ Rd_des)
+        # ang_vel_d = mpcFunc.util_vee(R_des.T @ Rd_des)
 
-        return (n_z[2], ang_vel_d)
+        r = scipyR.from_matrix(R_des)
+        quat_des = r.as_quat()
+        return (thrust_norm, quat_des)
 
+    def publish_cmd_raw(self,ref): 
+        msg = PositionTarget()
+        msg.coordinate_frame = 1
+
+        msg.type_mask = 0b0000100111000000
+        # msg.type_mask = 0b0000100111111000
+        msg.position.x = ref[1] #init.params["mission"]["uav_pos"][1]
+        msg.position.y = ref[0] #init.params["mission"]["uav_pos"][0]
+        msg.position.z = -ref[2] #-init.params["mission"]["uav_pos"][2]
+
+        # msg.type_mask = 0b0000100000111111 # 0b0000001000000000
+        # msg_force.acceleration_or_force.x = ref[1] / init.params["derived"]["sys_mass"]
+        # msg_force.acceleration_or_force.y = ref[0] / init.params["derived"]["sys_mass"]
+        # msg_force.acceleration_or_force.z = -ref[2] / init.params["derived"]["sys_mass"]
+
+        # msg.type_mask = 0b0000100111000111
+        msg.velocity.x = ref[4] # ref[1]
+        msg.velocity.y = ref[3] # ref[0]
+        msg.velocity.z = -ref[5] # -ref[2]
+
+        self.pub_pos_raw.publish(msg)
+
+    def preGen_cmd(self):
+        i = 0
+        r = max(init.x_preGen.shape)
+        xHist = np.hstack((init.ics["pld_rel_pos"].T, init.ics["uav_pos"].T))
+
+        while not rospy.is_shutdown(): 
+                
+            while i < r:
+                ref = np.concatenate((init.x_preGen[i,2:5],init.x_preGen[i,7:]))
+                self.publish_cmd_raw(ref)
+                self.rate.sleep()
+                i += 1
+
+                self.last_pos = self.uav_pos
+                xHist = np.vstack((xHist, np.hstack((self.pld_rel_pos.T,
+                                                    self.uav_pos.T))))
+
+            # convert array into dataframe
+            DF = pd.DataFrame(xHist)
+            DF.to_csv("xHist.csv")
+
+            # self.hold_pos()
+            # self.rate.sleep()
 
 if __name__ == '__main__': 
     try: 
@@ -339,26 +414,34 @@ if __name__ == '__main__':
         time.sleep(5)
         print("Wait is over.")
         error = 1
-        while error > 0.4:
+        while not rospy.is_shutdown() and error > 0.1:
             run_mpc.start_pos() # fly uav to start position
             run_mpc.rate.sleep()
-            error = run_mpc.uav_pos - init.ics["uav_pos"].reshape((3,1))
-            error = (error.T @ error)**0.5
+            error = (np.vstack((run_mpc.pld_rel_pos, run_mpc.uav_pos)) - 
+                     np.vstack((init.ics["pld_rel_pos"], init.ics["uav_pos"])))
+            error = mpcFunc.util_norm(error)
+        
         print("Starting MPC solver loop.")
 
-        while not rospy.is_shutdown(): 
-            # if goal is reached, hold uav at goal 
-            # else, run MPC solver to get next commands
-            # error = run_mpc.uav_pos - init.params["mission"]["uav_pos"].reshape((3,1))
-            # error = mpcFunc.util_ca_sq_norm(error)**0.5
-            # if error < 0.05: 
-            #     print("Reached goal position.")
-            #     run_mpc.hold_pos()
-            # else:
-            #     run_mpc.publish_cmd()
-            run_mpc.publish_cmd()
+        run_mpc.preGen_cmd()
 
-            run_mpc.rate.sleep()
+        # mpciter = 0
+        # while not rospy.is_shutdown(): 
+        #     # if goal is reached, hold uav at goal 
+        #     # else, run MPC solver to get next commands
+        #     error = run_mpc.uav_pos - init.params["mission"]["uav_pos"].reshape((3,1))
+        #     error = mpcFunc.util_norm(error)
+        #     if error < 0.1: # or mpciter > 100: 
+        #         # print("Reached goal position.")
+        #         print(run_mpc.uav_pos)
+        #         run_mpc.hold_pos()
+        #     else:
+        #         run_mpc.last_pos = run_mpc.uav_pos
+        #         print(run_mpc.u[0,:])
+        #         run_mpc.publish_cmd()
+            
+        #     mpciter += 1
+        #     run_mpc.rate.sleep()
 
     except rospy.ROSInterruptException: 
         pass

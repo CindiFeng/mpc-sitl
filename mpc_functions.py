@@ -148,6 +148,9 @@ def util_RK4(f,Ts,x_current,con):
 
     return x_next
 
+def euler2quat(R): 
+    pass
+
 def util_vee(ss): 
     """
     vee function to map a skew-symmetric matrix to a vector
@@ -181,8 +184,8 @@ def util_ca_sq_norm(a):
 
 def util_norm(a):
     r = max(a.shape)
-    a = a.reshape((r,1))
-    return (a.T @ a)**0.5
+    a = a.reshape((r,))
+    return ((a.T @ a)**0.5)
 
 def util_DM2Arr(dm):
     return np.array(dm.full())
