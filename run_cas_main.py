@@ -89,8 +89,8 @@ def gen_solver():
             con_pld_d = ca.vertcat(con_pld_d, ineq_fcn[init.idx["g"]["ineq_pld_d"]])
 
     # con_fcn = ca.vertcat(con_eq, con_ws, con_obs, con_pld_d) # inequality constraints
-    # con_fcn = ca.vertcat(con_eq, con_ws, con_obs)
-    con_fcn = con_eq
+    con_fcn = ca.vertcat(con_eq, con_ws, con_obs)
+    # con_fcn = con_eq
 
     # Set equality and inequality constraints
     # upper/lower function bounds lb <= g <= ub
@@ -101,16 +101,16 @@ def gen_solver():
     lbg[init.idx["g"]["eq"][0]:init.idx["g"]["eq"][1]] = 0 
     ubg[init.idx["g"]["eq"][0]:init.idx["g"]["eq"][1]] = 0
 
-    # # bounds on workspace constraints
-    # n_repeat = int((init.idx["g"]["ws"][1] - init.idx["g"]["ws"][0]) / 3)
-    # lbg[init.idx["g"]["ws"][0]:init.idx["g"]["ws"][1]] = \
-    #     np.tile(init.sim["workspace"][0,:].reshape(3,1), (n_repeat,1)) 
-    # ubg[init.idx["g"]["ws"][0]:init.idx["g"]["ws"][1]] = \
-    #     np.tile(init.sim["workspace"][1,:].reshape(3,1), (n_repeat,1))
+    # bounds on workspace constraints
+    n_repeat = int((init.idx["g"]["ws"][1] - init.idx["g"]["ws"][0]) / 3)
+    lbg[init.idx["g"]["ws"][0]:init.idx["g"]["ws"][1]] = \
+        np.tile(init.sim["workspace"][0,:].reshape(3,1), (n_repeat,1)) 
+    ubg[init.idx["g"]["ws"][0]:init.idx["g"]["ws"][1]] = \
+        np.tile(init.sim["workspace"][1,:].reshape(3,1), (n_repeat,1))
 
-    # # bounds on collision avoidance constraints
-    # lbg[init.idx["g"]["obs"][0]:init.idx["g"]["obs"][1]] = 0 
-    # ubg[init.idx["g"]["obs"][0]:init.idx["g"]["obs"][1]] = ca.inf
+    # bounds on collision avoidance constraints
+    lbg[init.idx["g"]["obs"][0]:init.idx["g"]["obs"][1]] = 0 
+    ubg[init.idx["g"]["obs"][0]:init.idx["g"]["obs"][1]] = ca.inf
 
     # # bounds on payload swing radius
     # lbg[init.idx["g"]["pld_d"][0]:init.idx["g"]["pld_d"][1]] = 0 
