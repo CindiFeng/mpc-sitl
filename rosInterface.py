@@ -7,7 +7,7 @@ import init
 import util_fcn as util
 from MPCController import runMPC
 from PIDController import runPID
-from PIDTest import runPID
+# from PIDTest import runPID
 
 import rospy
 from geometry_msgs.msg import PoseStamped
@@ -25,8 +25,8 @@ class runROSNode(object):
         # self.pub_thrust = rospy.Publisher("/mavros/setpoint_attitude/thrust", Thrust, queue_size=1)
         # self.pub_quat = rospy.Publisher("/mavros/setpoint_attitude/attitude", PoseStamped, queue_size=1)
         self.pub_pos_raw = rospy.Publisher("/mavros/setpoint_raw/local", PositionTarget, queue_size=1)
-        self.pub_att = rospy.Publisher("/mavros/setpoint_raw/local", PositionTarget, queue_size=1)
-        # self.pub_att = rospy.Publisher("/mavros/setpoint_raw/attitude", AttitudeTarget, queue_size=1)
+        # self.pub_att = rospy.Publisher("/mavros/setpoint_raw/local", PositionTarget, queue_size=1)
+        self.pub_att = rospy.Publisher("/mavros/setpoint_raw/attitude", AttitudeTarget, queue_size=1)
         self.pub_status = rospy.Publisher("/safetyStatus", String, queue_size=1)
 
         # subscriber
@@ -186,7 +186,6 @@ class runROSNode(object):
             # last_pos = np.array([mpc.uav_pos[1,0],mpc.uav_pos[0,0],-mpc.uav_pos[2,0]])
             last_pos = self._mocap_uav.position
             while not rospy.is_shutdown():
-                print('Entering the while loop inside _run_mpc')
                 self._pub_hold_pos(last_pos)
                 # self._pub_ff_hold_pos(last_pos)
         else:

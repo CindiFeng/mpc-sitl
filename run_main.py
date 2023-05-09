@@ -30,7 +30,7 @@ WS_Z_MIN = 0
 
 def go2start(irisDrone):
     error = 1
-    while not rospy.is_shutdown() and error > 0.05:
+    while not rospy.is_shutdown() and error > 0.03:
         irisDrone.mpc.get_odom(irisDrone._mocap_uav, irisDrone._mocap_pld)
         if safetyCheckFail(irisDrone):
             irisDrone._pub_land()
@@ -40,13 +40,12 @@ def go2start(irisDrone):
         error = (np.vstack((irisDrone.mpc.pld_rel_pos, irisDrone.mpc.uav_pos)) - 
                 np.vstack((init.ics["pld_rel_pos"], init.ics["uav_pos"])))
         error = util.norm(error)
-        irisDrone.rate.sleep()
 
     # print('Testing: holding position')
     # last_pos = irisDrone._mocap_uav.position
     # while not rospy.is_shutdown():
-    #     # irisDrone._pub_hold_pos(last_pos)
-    #     irisDrone._pub_ff_hold_pos(last_pos)
+    #     irisDrone._pub_hold_pos(last_pos)
+    #     # irisDrone._pub_ff_hold_pos(last_pos)
     #     irisDrone.rate.sleep()
 
 def main_loop(irisDrone):

@@ -24,14 +24,15 @@ class runPID(object):
     def __init__(self):
 
         # PD controller gains for x, y, z, psi errors
-        self.kpx, self.kdx, self.kix = 1.6, 8, 0
+        self.kpx, self.kdx, self.kix = 0.8, 2, 0.1
         self.kpy, self.kdy, self.kiy = self.kpx, self.kdx, self.kix
-        self.kpz, self.kdz =  10, 2
+        self.kpz, self.kdz, self.kiz =  1, 0.6, 0.035 
         self.kppsi, self.kdpsi = 1, 0
         
         # integration
         self.x_int_err = 0
         self.y_int_err = 0
+        self.z_int_err = 0
 
         # init for numerical differentiating
         self.x_last_err = 0
@@ -102,6 +103,7 @@ class runPID(object):
         # integration error
         self.x_int_err += x_err * dt
         self.y_int_err += y_err * dt
+        self.z_int_err += z_err * dt
         
         # numerical differentiator to obtain velocity error
         xd_err = (x_err - self.x_last_err) / dt
@@ -116,13 +118,13 @@ class runPID(object):
         psi_des = 0
         xdd_c = self.kdx * xd_err + self.kpx * x_err + self.kix * self.x_int_err + xdd_des
         ydd_c = self.kdy * yd_err + self.kpy * y_err + self.kiy * self.y_int_err + ydd_des
-        zdd_c = self.kdz * zd_err + self.kpz * z_err + zdd_des
+        zdd_c = self.kdz * zd_err + self.kpz * z_err + self.kiz * self.z_int_err + zdd_des
         psi_c = self.kdpsi * psid_err + self.kppsi * psi_err + zdd_des
 
         zd = (self.z-self.z_last) / dt
         zdd = (zd - self.zd_last) / dt
 
-        f_z = (zdd + g)/(np.cos(theta)*np.cos(phi))
+        # f_z = (zdd + g)/(np.cos(theta)*np.cos(phi))
 
         # calculated commands: roll, pitch, and force in z-axis
         r_c = np.arctan(-ydd_c * np.cos(theta) / (zdd + g))
@@ -131,14 +133,14 @@ class runPID(object):
         phi_c = r_c * np.cos(psi) + p_c * np.sin(psi)
         theta_c = -r_c * np.sin(psi) + p_c * np.cos(psi)
 
-        r = scipyR.from_euler('xyz',[phi_c,theta_c,0],degrees=False)
+        r = scipyR.from_euler('xyz',[self.saturation(phi_c),self.saturation(theta_c),0],degrees=False)
         quat_c = r.as_quat()
         pub_cmd = AttitudeTarget()
         pub_cmd.orientation.x = quat_c[0]
         pub_cmd.orientation.y = quat_c[1]
         pub_cmd.orientation.z = quat_c[2]
         pub_cmd.orientation.w = quat_c[3]
-        pub_cmd.thrust = self.saturation(f_z)
+        pub_cmd.thrust = self.saturation(zdd_c)
         # pub_cmd.type_mask = 192
         # pub_cmd.body_rate.x = self.saturation(phi_c)
         # pub_cmd.body_rate.y = self.saturation(theta_c)
