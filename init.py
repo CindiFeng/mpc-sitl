@@ -35,9 +35,9 @@ sim = {
     "g" : 9.80665,
     "grav" : np.array([0, 0, 9.80665]).reshape(3,1),
     "workspace" : np.array([[-0.6,  -1, -6],   # min x, y, z
-                            [ 0.5,  10,  0]]),  # max x, y, z
-    "obs_pos" : np.array([-0.4, 1.5, -3.2]).reshape(3,1),
-    "obs_dim" : np.array([0.68, 0.55, 2]),
+                            [ 0.4,  10,  0]]),  # max x, y, z
+    "obs_pos" : np.array([-0.4, 1.5, -4]).reshape(3,1),
+    "obs_dim" : np.array([0.65, 0.55, 1]),
     "duration" : 10,
     }
 

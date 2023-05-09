@@ -18,8 +18,8 @@
     ]
   ],
   "pld_mass": 0.505,
-  "cable_len": 1.6,
-  "arm_len": 0.3,
+  "cable_len": 1.05,
+  "arm_len": 0.35,
   "mission": {
     "uav_pos": [
       [
