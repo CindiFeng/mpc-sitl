@@ -18,14 +18,14 @@
     ]
   ],
   "pld_mass": 0.505,
-  "cable_len": 1.05,
+  "cable_len": 1.07,
   "arm_len": 0.35,
   "mission": {
     "uav_pos": [
       [
         -0.2,
         3,
-        -5.2
+        5.2
       ]
     ],
     "pld_rel_pos": [
@@ -56,7 +56,7 @@
     "mvRatesWeights": [[0.01,0.03,0.05]],
     "mvWeights": [[0.1,0.3,0.9]],
     "cost_swing": 3,
-    "cost_in": 0.01,
+    "cost_in": 0.1,
     "cost_inRate": 0.2,
     "cost_nav": 0.5,
     "cost_nav_N": 100,

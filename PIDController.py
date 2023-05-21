@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Class for writing position controller."""
 
@@ -9,6 +9,8 @@ from scipy.spatial.transform import Rotation as scipyR
 # Import ROS libraries
 import rospy
 import numpy as np
+
+import attitude_conversion as att
 
 # Import class 
 from tf.transformations import euler_from_quaternion
@@ -133,26 +135,26 @@ class runPID(object):
         phi_c = r_c * np.cos(psi) + p_c * np.sin(psi)
         theta_c = -r_c * np.sin(psi) + p_c * np.cos(psi)
 
-        r = scipyR.from_euler('xyz',[self.saturation(phi_c),self.saturation(theta_c),0],degrees=False)
-        quat_c = r.as_quat()
+        # r = scipyR.from_euler('xyz',[self.saturation(phi_c),self.saturation(theta_c),0],degrees=False)
+        # quat_c = r.as_quat()
+        quat_c = att.eul2quat([self.saturation(phi_c),self.saturation(theta_c),0])
         pub_cmd = AttitudeTarget()
         pub_cmd.orientation.x = quat_c[0]
         pub_cmd.orientation.y = quat_c[1]
         pub_cmd.orientation.z = quat_c[2]
         pub_cmd.orientation.w = quat_c[3]
         pub_cmd.thrust = self.saturation(zdd_c)
-        # pub_cmd.type_mask = 192
-        # pub_cmd.body_rate.x = self.saturation(phi_c)
-        # pub_cmd.body_rate.y = self.saturation(theta_c)
-        # pub_cmd.body_rate.z = self.saturation(psi_c)
 
-        # pub_cmd = PositionTarget()
-        # pub_cmd.coordinate_frame = 1
-        # pub_cmd.type_mask = 7
-        # pub_cmd.velocity.x = self.saturation(phi_c) # commanded roll angle
-        # pub_cmd.velocity.y = self.saturation(theta_c) # commanded pitch angle
-        # pub_cmd.velocity.z = self.saturation(zdd_c) # commanded z-velocity
-        # pub_cmd.yaw_rate = self.saturation(psi_c) # commanded yaw rate
+        rotm = att.eul2rot([self.saturation(phi_c),self.saturation(theta_c),0])
+        u_ENU = rotm[:,2]*(self.saturation(zdd_c)*30 - 6)
+        thrust, quat_c = att.att_extract(u_ENU)
+        
+        pub_cmd = AttitudeTarget()
+        pub_cmd.orientation.x = quat_c[0]
+        pub_cmd.orientation.y = quat_c[1]
+        pub_cmd.orientation.z = quat_c[2]
+        pub_cmd.orientation.w = quat_c[3]
+        pub_cmd.thrust = thrust
 
         # update
         self.last_time = time
@@ -165,9 +167,6 @@ class runPID(object):
         self.zd_last = zd
 
         return pub_cmd
-
-    # def hold_pos(self, _mocap_uav, last_pos): 
-    #     self.publish_cmd(_mocap_uav, last_pos)
 
         
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import casadi as ca
 import init
@@ -7,13 +7,14 @@ import numpy as np
 
 class runMPC(): 
     
-    def __init__(self,args,solver): 
+    def __init__(self,args,solver):
+        
         # initialize solver parameters
         self.args = args
         self.solver = solver
         N = init.params["control"]["predictionHorizon"]
         Nu = init.params["control"]["controlHorizon"]
-        u0 = -init.params["derived"]["sys_weight"] # controls from mpc solver
+        u0 = init.params["derived"]["sys_weight"] # controls from mpc solver
         x0 = np.vstack((init.ics["pld_rel_pos"],
                         init.ics["uav_pos"],
                         init.ics["pld_rel_vel"],
@@ -25,7 +26,7 @@ class runMPC():
         # self.xHist = x0[0:5].T
         self.xHist = x0.T
 
-    def _solve_mpc(self,_mocap_uav, _mocap_pld): 
+    def _solve_mpc(self, xref, _mocap_uav, _mocap_pld): 
         self.get_odom(_mocap_uav, _mocap_pld)
         
         # update MPC solver arguments and solve for control input
@@ -33,11 +34,6 @@ class runMPC():
         Nu = init.params["control"]["controlHorizon"]
         n_X = init.model["n_x"] * (N + 1) 
         n_U = init.model["n_u"] * Nu
-        
-        xref = np.vstack((init.params["mission"]["pld_rel_pos"],
-                          init.params["mission"]["uav_pos"], 
-                          init.params["mission"]["pld_rel_vel"], 
-                          init.params["mission"]["uav_vel"]))
         
         x0 = np.vstack((self.pld_rel_pos,
                         self.uav_pos,
@@ -68,19 +64,21 @@ class runMPC():
         self.uHist = np.vstack((self.uHist,self.u[0,:]))
     
     def get_odom(self, uav_msg, pld_msg):
-        self.uav_pos = np.array([[uav_msg.position[1]],
-                                 [uav_msg.position[0]],
-                                 [-uav_msg.position[2]]])
-        self.uav_vel = np.array([[uav_msg.velocity[1]],
-                                 [uav_msg.velocity[0]],
-                                 [-uav_msg.velocity[2]]])
-        pld_pos = np.array([[pld_msg.position[1]],
-                                 [pld_msg.position[0]],
-                                 [-pld_msg.position[2]]])
-        pld_vel = np.array([[pld_msg.velocity[1]],
-                                 [pld_msg.velocity[0]],
-                                 [-pld_msg.velocity[2]]])
+        self.uav_pos = np.array([[uav_msg.position[0]],
+                                 [uav_msg.position[1]],
+                                 [uav_msg.position[2]]])
+        self.uav_vel = np.array([[uav_msg.velocity[0]],
+                                 [uav_msg.velocity[1]],
+                                 [uav_msg.velocity[2]]])
+        pld_pos = np.array([[pld_msg.position[0]],
+                            [pld_msg.position[1]],
+                            [pld_msg.position[2]]])
+        pld_vel = np.array([[pld_msg.velocity[0]],
+                            [pld_msg.velocity[1]],
+                            [pld_msg.velocity[2]]])
         pld_rel_pos = pld_pos - self.uav_pos
         self.pld_rel_pos = pld_rel_pos[0:2]
         pld_rel_vel = pld_vel - self.uav_vel
         self.pld_rel_vel = pld_rel_vel[0:2]
+
+        # self.uav_quat = uav_msg.quaternion

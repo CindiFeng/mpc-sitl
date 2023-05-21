@@ -20,11 +20,11 @@ def slungLoadDyn(x,u):
     # Forces and input vector
     F_I = u
     F = ca.vertcat(ca.SX.zeros(2,1), F_I)
-    g_I= ca.vertcat(ca.SX.zeros(2,1),g)
+    g_I= ca.vertcat(ca.SX.zeros(2,1),-g)
 
     # Geometric Relations
-    B_hat = ca.vertcat(ca.SX.eye(2), -r_L.T / ca.sqrt(L**2 - r_L.T @ r_L))
-    B_hat_dot = ca.vertcat(ca.SX.zeros(2,2), ((v_L @ (r_L.T @ r_L-L**2)-r_L @ r_L.T @ v_L)/(L**2-r_L.T @ r_L)**(3/2)).T)
+    B_hat = ca.vertcat(ca.SX.eye(2), r_L.T / ca.sqrt(L**2 - r_L.T @ r_L))
+    B_hat_dot = ca.vertcat(ca.SX.zeros(2,2), -((v_L @ (r_L.T @ r_L-L**2)-r_L @ r_L.T @ v_L)/(L**2-r_L.T @ r_L)**(3/2)).T)
 
     # System Matrices
     G = ca.vertcat(m_p * B_hat.T @ g_I, (m_p+m_q)*g_I)
@@ -57,7 +57,7 @@ def ineqConFcn(x_cur):
     uav_pos = x_cur[init.idx["x"]["uav_pos"][0]:init.idx["x"]["uav_pos"][1]]
     pld_rel_pos = x_cur[init.idx["x"]["pld_rel_pos"][0]:init.idx["x"]["pld_rel_pos"][1]]
     pld_abs_pos = uav_pos + ca.vertcat(pld_rel_pos, 
-                                       ca.sqrt(init.params["cable_len"]**2 - \
+                                       -ca.sqrt(init.params["cable_len"]**2 - \
                                                 pld_rel_pos.T @ pld_rel_pos))
 
     uav_obs_vec = uav_pos - init.sim["obs_pos"]
@@ -102,7 +102,7 @@ def costFcn(x_cur,u_cur,u_prev,P):
 
     cost_swing = init.params["control"]["cost_swing"] * util.ca_sq_norm(pld_rel_pos)
 
-    cost_in = init.params["control"]["cost_in"] * util.ca_sq_norm(u_cur + init.params["derived"]["sys_weight"])
+    cost_in = init.params["control"]["cost_in"] * util.ca_sq_norm(u_cur - init.params["derived"]["sys_weight"])
 
     # cost_inRate = init.params["control"]["cost_inRate"] * np.sum((u_cur - u_prev)**2)
 
@@ -230,8 +230,8 @@ def _genSolver():
 
     # input_min = -ca.inf*np.ones((init.model["n_u"],1))
     # input_max = ca.inf*np.ones((init.model["n_u"],1))
-    input_min = -np.array([12,12,25]).reshape((3,1))
-    input_max = np.array([12,12,5]).reshape((3,1))
+    input_min = np.array([-15,-15,0])
+    input_max = np.array([15,15,45])
     for i in range(init.model["n_u"]):
         lbx[n_X+i:n_XU:init.model["n_u"]] = input_min[i] #input lower limit
         ubx[n_X+i:n_XU:init.model["n_u"]] = input_max[i] #input upper limit
