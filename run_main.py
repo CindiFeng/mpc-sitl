@@ -27,7 +27,7 @@ def go2start(irisDrone):
     Fly drone to a specified initial position 
     """
     error = 1
-    while not rospy.is_shutdown() and error > 0.1:
+    while not rospy.is_shutdown() and error > 0.05:
         irisDrone.mpc.get_odom(irisDrone._mocap_uav, irisDrone._mocap_pld)
         # if safetyCheckFail(irisDrone):
         #     irisDrone._pub_land()
@@ -82,8 +82,6 @@ def main_loop(irisDrone):
             # PX4 position control to follow pre-generated waypoints
             if i < i_max:
                 xref = init.x_preGen[i,2:5]
-                # xref = np.array([-0.2,3,5])
-                xdotref = init.x_preGen[i,7:]
                 # irisDrone.mpc._solve_mpc(init.x_preGen[i,:], irisDrone._mocap_uav, irisDrone._mocap_pld)
                 irisDrone.mpc._solve_mpc(np.vstack((init.params["mission"]["pld_rel_pos"],
                               init.params["mission"]["uav_pos"], 
@@ -103,7 +101,7 @@ def main_loop(irisDrone):
                 #     pd.DataFrame(xHist).to_csv("xHist_track_preGen.csv")
 
 
-            irisDrone._pub_ff_hold_pos(xref,xdotref)
+            irisDrone._pub_ff_hold_pos(xref)
             # irisDrone.mpc._solve_mpc(xref, irisDrone.mpc._mocap_uav, irisDrone.mpc._mocap_pld)
         else:
             # MPC for point navigation tasks
@@ -112,6 +110,10 @@ def main_loop(irisDrone):
                               init.params["mission"]["pld_rel_vel"], 
                               init.params["mission"]["uav_vel"]))
             irisDrone._run_mpc(xref)
+            # pd.DataFrame(irisDrone.mpc.uHist).to_csv("uHist.csv")
+            # pd.DataFrame(irisDrone.tHist).to_csv("tHist.csv")
+            # pd.DataFrame(irisDrone.mpc.uHist_ude).to_csv("uHist_ude.csv")
+            # pd.DataFrame(irisDrone.mpc.xHist).to_csv("xHist.csv")
         irisDrone.rate.sleep()
 
 def safetyCheckFail(irisDrone):

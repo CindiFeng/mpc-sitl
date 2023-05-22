@@ -72,7 +72,7 @@ def ineqConFcn(x_cur):
 
     return cineq 
 
-def costFcn(x_cur,u_cur,u_prev,P):
+def costFcn(x_cur,u_cur,P):
     """ 
     Abridged custom cost function based on Potdar 2020 paper
     INPUT:  x_cur, column state vector
@@ -89,22 +89,26 @@ def costFcn(x_cur,u_cur,u_prev,P):
 
     # assign variables
     uav_pos = x_cur[init.idx["x"]["uav_pos"][0]:init.idx["x"]["uav_pos"][1]]
+    uav_vel = x_cur[init.idx["x"]["uav_vel"][0]:init.idx["x"]["uav_vel"][1]]
     pld_rel_pos = x_cur[init.idx["x"]["pld_rel_pos"][0]:init.idx["x"]["pld_rel_pos"][1]]
+    pld_rel_vel = x_cur[init.idx["x"]["pld_rel_vel"][0]:init.idx["x"]["pld_rel_vel"][1]]
     x_goal = P[init.idx["p"]["x_goal"][0]:init.idx["p"]["x_goal"][1]]
     uav_goal = x_goal[init.idx["x"]["uav_pos"][0]:init.idx["x"]["uav_pos"][1]]
     x_start = P[init.idx["p"]["x0"][0]:init.idx["p"]["x0"][1]]
     uav_start = x_start[init.idx["x"]["uav_pos"][0]:init.idx["x"]["uav_pos"][1]]
 
-    denom = util.ca_sq_norm(uav_goal - uav_start) # cannot start at goal!!!
-    cost_nav = init.params["control"]["cost_nav"] * util.ca_sq_norm(uav_goal-uav_pos) / denom
+    # denom = sq_norm(uav_goal - uav_start) # cannot start at goal!!!
+    # cost_nav = init.params["control"]["cost_nav"] * np.linalg.norm(uav_goal-uav_pos) / denom
+    nav = uav_vel + init.params["control"]["cost_nav_kp"] * (uav_pos - uav_goal)
+    cost_nav = init.params["control"]["cost_nav"] * (nav.T @ nav)
 
     cost_nav_k = init.params["control"]["cost_nav_k"] * util.ca_sq_norm(uav_goal - uav_pos)
 
-    cost_swing = init.params["control"]["cost_swing"] * util.ca_sq_norm(pld_rel_pos)
+    # cost_swing = init.params["control"]["cost_swing"] * np.linalg.norm(pld_rel_pos)
+    swing = pld_rel_vel + init.params["control"]["cost_swing_kp"] * pld_rel_pos
+    cost_swing = init.params["control"]["cost_swing"] * (swing.T @ swing)
 
     cost_in = init.params["control"]["cost_in"] * util.ca_sq_norm(u_cur - init.params["derived"]["sys_weight"])
-
-    # cost_inRate = init.params["control"]["cost_inRate"] * np.sum((u_cur - u_prev)**2)
 
     J = cost_nav + cost_nav_k + cost_in + cost_swing
 
@@ -172,13 +176,12 @@ def _genSolver():
         con_pld_d = ca.vertcat(con_pld_d, ineq_fcn[init.idx["g"]["ineq_pld_d"]])
         
         # objective function
-        obj_fcn = obj_fcn + costFcn(x_cur,u_cur,u_prev,P)       
-        u_prev = u_cur
+        obj_fcn = obj_fcn + costFcn(x_cur,u_cur,P)       
         
         if( k == (N - 1)): 
             # terminal objective function
             init.params["control"]["cost_nav"] = init.params["control"]["cost_nav_N"]
-            obj_fcn = obj_fcn + costFcn(x_next,u_cur,u_prev,P)
+            obj_fcn = obj_fcn + costFcn(x_next,u_cur,P)
             
             ineq_fcn = ineqConFcn(x_cur)
             con_ws = ca.vertcat(con_ws, ineq_fcn[init.idx["g"]["ineq_ws"][0]:init.idx["g"]["ineq_ws"][1]])
@@ -186,8 +189,8 @@ def _genSolver():
             con_pld_d = ca.vertcat(con_pld_d, ineq_fcn[init.idx["g"]["ineq_pld_d"]])
 
     # con_fcn = ca.vertcat(con_eq, con_ws, con_obs, con_pld_d) # inequality constraints
-    con_fcn = ca.vertcat(con_eq, con_ws, con_obs)
-    # con_fcn = con_eq
+    # con_fcn = ca.vertcat(con_eq, con_ws, con_obs)
+    con_fcn = con_eq
 
     # Set equality and inequality constraints
     # upper/lower function bounds lb <= g <= ub
@@ -198,16 +201,16 @@ def _genSolver():
     lbg[init.idx["g"]["eq"][0]:init.idx["g"]["eq"][1]] = 0 
     ubg[init.idx["g"]["eq"][0]:init.idx["g"]["eq"][1]] = 0
 
-    # bounds on workspace constraints
-    n_repeat = int((init.idx["g"]["ws"][1] - init.idx["g"]["ws"][0]) / 3)
-    lbg[init.idx["g"]["ws"][0]:init.idx["g"]["ws"][1]] = \
-        np.tile(init.sim["workspace"][0,:].reshape(3,1), (n_repeat,1)) 
-    ubg[init.idx["g"]["ws"][0]:init.idx["g"]["ws"][1]] = \
-        np.tile(init.sim["workspace"][1,:].reshape(3,1), (n_repeat,1))
+    # # bounds on workspace constraints
+    # n_repeat = int((init.idx["g"]["ws"][1] - init.idx["g"]["ws"][0]) / 3)
+    # lbg[init.idx["g"]["ws"][0]:init.idx["g"]["ws"][1]] = \
+    #     np.tile(init.sim["workspace"][0,:].reshape(3,1), (n_repeat,1)) 
+    # ubg[init.idx["g"]["ws"][0]:init.idx["g"]["ws"][1]] = \
+    #     np.tile(init.sim["workspace"][1,:].reshape(3,1), (n_repeat,1))
 
-    # bounds on collision avoidance constraints
-    lbg[init.idx["g"]["obs"][0]:init.idx["g"]["obs"][1]] = 0 
-    ubg[init.idx["g"]["obs"][0]:init.idx["g"]["obs"][1]] = ca.inf
+    # # bounds on collision avoidance constraints
+    # lbg[init.idx["g"]["obs"][0]:init.idx["g"]["obs"][1]] = 0 
+    # ubg[init.idx["g"]["obs"][0]:init.idx["g"]["obs"][1]] = ca.inf
 
     # Set hard constraints on states and input
     # upper/lower variable bounds lb <= x <= ub
@@ -231,7 +234,7 @@ def _genSolver():
     # input_min = -ca.inf*np.ones((init.model["n_u"],1))
     # input_max = ca.inf*np.ones((init.model["n_u"],1))
     input_min = np.array([-15,-15,0])
-    input_max = np.array([15,15,45])
+    input_max = np.array([15,15,35])
     for i in range(init.model["n_u"]):
         lbx[n_X+i:n_XU:init.model["n_u"]] = input_min[i] #input lower limit
         ubx[n_X+i:n_XU:init.model["n_u"]] = input_max[i] #input upper limit

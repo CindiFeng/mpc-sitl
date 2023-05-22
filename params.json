@@ -57,10 +57,12 @@
     "mvWeights": [[0.1,0.3,0.9]],
     "cost_swing": 3,
     "cost_in": 0.1,
-    "cost_inRate": 0.2,
     "cost_nav": 0.5,
     "cost_nav_N": 100,
-    "cost_nav_k": 0
+    "cost_nav_k": 0,
+    "cost_swing_kp": 1,
+    "cost_nav_kp": 2,
+    "ude_lambda": 1
   },
   "obstacle":{
     "bo": 0.05,

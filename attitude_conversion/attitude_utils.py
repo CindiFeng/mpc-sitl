@@ -45,9 +45,9 @@ def att_extract(f_ctrl):
         Takes control input (in ENU) from mpc solver to derive desired quaternion
         """
 
-        f_mag = norm(f_ctrl)
+        f_mag = np.linalg.norm(f_ctrl)
         # thrust_norm = (f_mag + 6)/31
-        thrust_norm = (f_mag + 6)/32
+        thrust_norm = (f_mag + 6)/36
         if thrust_norm > 1: 
              thrust_norm = 1
         

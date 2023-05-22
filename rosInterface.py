@@ -58,19 +58,16 @@ class runROSNode(object):
 
         self.pub_pos_raw.publish(msg)   
     
-    def _pub_ff_hold_pos(self,des_pos,xdotref):
+    def _pub_ff_hold_pos(self,des_pos):
         # Publish position coordinates to setpoint_raw/positionTarget 
 
         msg = PositionTarget()
         msg.coordinate_frame = 1
 
-        msg.type_mask = 0b0000100111000000
+        msg.type_mask = 0b0000100111111000
         msg.position.x = des_pos[0] 
         msg.position.y = des_pos[1] 
-        msg.position.z = des_pos[2] 
-        msg.velocity.x = xdotref[0]
-        msg.velocity.y = xdotref[1]
-        msg.velocity.z = xdotref[2]
+        msg.position.z = des_pos[2]
 
         self.pub_pos_raw.publish(msg)
 
@@ -163,16 +160,15 @@ class runROSNode(object):
         error = util.norm(error)
         if error < 0.1: # or mpciter > 100: 
             rospy.loginfo("Reached goal position.")
-            DF = pd.DataFrame(mpc.xHist)
-            DF.to_csv("xHist.csv")
-            DF = pd.DataFrame(mpc.uHist)
-            DF.to_csv("uHist.csv")
-            DF = pd.DataFrame(self.tHist)
-            DF.to_csv("tHist.csv")
+            pd.DataFrame(mpc.xHist).to_csv("xHist.csv")
+            pd.DataFrame(mpc.uHist).to_csv("uHist.csv")
+            pd.DataFrame(mpc.uHist_ude).to_csv("uHist_ude.csv")
+            pd.DataFrame(self.tHist).to_csv("tHist.csv")
             last_pos = self._mocap_uav.position
             while not rospy.is_shutdown():
                 self._pub_ff_hold_pos(last_pos)
         else:
             self.mpc._solve_mpc(xref, self._mocap_uav, self._mocap_pld) # update ctrl input
-            thrust, quat_des = att.att_extract(self.mpc.u[0,:].T)
+            thrust, quat_des = att.att_extract(mpc.F_act)
+            # thrust, quat_des = att.att_extract(mpc.u[0,:])
             self._pub_mpc_cmd(thrust, quat_des)

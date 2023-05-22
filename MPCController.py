@@ -23,8 +23,12 @@ class runMPC():
         self.sol_x = np.tile(x0,(1,N+1)).T
 
         self.uHist = u0.reshape((1,init.model["n_u"]))
-        # self.xHist = x0[0:5].T
         self.xHist = x0.T
+
+        self.uHist_ude = u0.reshape((1,init.model["n_u"]))
+        self.F_ude = 0
+        self.F_act = u0
+        self.ude_int = init.params["derived"]["sys_mass"] * np.array([0,0,-init.sim["g"]]).reshape((3,1)) + u0 + self.F_ude
 
     def _solve_mpc(self, xref, _mocap_uav, _mocap_pld): 
         self.get_odom(_mocap_uav, _mocap_pld)
@@ -62,6 +66,13 @@ class runMPC():
         self.u = util.DM2Arr(ca.reshape(sol['x'][n_X:], 
                                         init.model["n_u"], Nu).T)
         self.uHist = np.vstack((self.uHist,self.u[0,:]))
+
+        # get UDE compensated controls
+        F_mpc = self.u[0,:].reshape((3,1))
+        # self.ude_int, self.F_ude = self.get_UDE_F(F_mpc)
+        self.get_UDE_F(F_mpc)
+        self.F_act = F_mpc - self.F_ude
+        self.uHist_ude= np.vstack((self.uHist_ude,self.F_ude.T))
     
     def get_odom(self, uav_msg, pld_msg):
         self.uav_pos = np.array([[uav_msg.position[0]],
@@ -82,3 +93,24 @@ class runMPC():
         self.pld_rel_vel = pld_rel_vel[0:2]
 
         # self.uav_quat = uav_msg.quaternion
+
+    def get_UDE_F(self, F_mpc):
+    
+        ude_lambda = init.params["control"]["ude_lambda"]
+        m_p = init.params["pld_mass"]
+        m_q = init.params["uav_mass"]
+        m_tot = init.params["derived"]["sys_mass"]
+        L = init.params["cable_len"]
+        g_I=np.array([0, 0, -init.sim["g"]]).reshape((3,1))
+        Ts = init.params["control"]["sampleTime"]
+        
+        r_L = self.pld_rel_pos
+        B = np.vstack((np.eye(2), r_L.T / np.sqrt(L**2-np.linalg.norm(r_L)**2 )))
+        v_L = self.pld_rel_vel
+        v_q = self.uav_vel
+        
+        self.ude_int = self.ude_int - (m_tot * g_I + F_mpc + self.F_ude) * Ts
+
+        self.F_ude = 1/ude_lambda * (m_p * B @ v_L + m_tot * v_q + self.ude_int)
+
+        # return ude_int, F_ude
