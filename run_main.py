@@ -5,13 +5,12 @@ from std_msgs.msg import String
 import time
 import numpy as np
 import pandas as pd
-# from scipy.spatial.transform import Rotation as scipyR
-import attitude_conversion as att
 
-import init
-import util_fcn as util
-import mpc_fcn as mpc
+# import init
+import init_setting as init
 from rosInterface import runROSNode
+import attitude_conversion as att
+import util_fcn as util 
 
 WS_X_MAX = 4
 WS_Y_MAX = 1
@@ -27,7 +26,7 @@ def go2start(irisDrone):
     Fly drone to a specified initial position 
     """
     error = 1
-    while not rospy.is_shutdown() and error > 0.05:
+    while not rospy.is_shutdown() and error > 0.1:
         irisDrone.mpc.get_odom(irisDrone._mocap_uav, irisDrone._mocap_pld)
         # if safetyCheckFail(irisDrone):
         #     irisDrone._pub_land()
@@ -39,13 +38,7 @@ def go2start(irisDrone):
 
         error = (np.vstack((irisDrone.mpc.pld_rel_pos, irisDrone.mpc.uav_pos)) - 
                 np.vstack((init.ics["pld_rel_pos"], init.ics["uav_pos"])))
-        error = util.norm(error)
-
-    # TRY: send angular velocities as cmds (wd = Rd.T @ Rd)
-    # init_quat = np.array([irisDrone.mpc.uav_quat[1],irisDrone.mpc.uav_quat[2],
-    #                       irisDrone.mpc.uav_quat[3],irisDrone.mpc.uav_quat[0]])
-    # r = scipyR.from_quat(init_quat)
-    # irisDrone.mpc.R_des_prev = r.as_matrix().reshape((3,3))
+        error = np.linalg.norm(error)
 
 def main_loop(irisDrone):
     """
@@ -62,16 +55,10 @@ def main_loop(irisDrone):
 
     irisDrone.sec_prev = irisDrone._mocap_uav.header.stamp.secs
     irisDrone.tHist = np.array([[irisDrone._mocap_uav.header.stamp.secs + 
-                                    irisDrone._mocap_uav.header.stamp.nsecs * 1e-9]])
+                                 irisDrone._mocap_uav.header.stamp.nsecs * 1e-9]])
 
     i = 0
     i_max = init.x_preGen.shape[0]
-
-    # Record xHist for TESTING
-    # xHist = np.hstack((irisDrone.mpc.pld_rel_pos.T,
-    #                     irisDrone.mpc.uav_pos.T, 
-    #                     irisDrone.mpc.pld_rel_vel.T,
-    #                     irisDrone.mpc.uav_vel.T))
 
     while not rospy.is_shutdown():
         # if safetyCheckFail(irisDrone): 
@@ -89,18 +76,6 @@ def main_loop(irisDrone):
                               init.params["mission"]["uav_vel"])), irisDrone._mocap_uav, irisDrone._mocap_pld)
                 i += 1
 
-                # Record x and uHist for TESTING
-                # xHist = np.vstack((xHist,
-                #                np.hstack((irisDrone.mpc.pld_rel_pos.T,
-                #                           irisDrone.mpc.uav_pos.T, 
-                #                           irisDrone.mpc.pld_rel_vel.T,
-                #                           irisDrone.mpc.uav_vel.T))))
-                # if i == i_max: 
-                #     print(irisDrone.mpc.uHist)
-                #     pd.DataFrame(irisDrone.mpc.uHist).to_csv("uHist_track_preGen.csv")
-                #     pd.DataFrame(xHist).to_csv("xHist_track_preGen.csv")
-
-
             irisDrone._pub_ff_hold_pos(xref)
             # irisDrone.mpc._solve_mpc(xref, irisDrone.mpc._mocap_uav, irisDrone.mpc._mocap_pld)
         else:
@@ -110,10 +85,13 @@ def main_loop(irisDrone):
                               init.params["mission"]["pld_rel_vel"], 
                               init.params["mission"]["uav_vel"]))
             irisDrone._run_mpc(xref)
+
             # pd.DataFrame(irisDrone.mpc.uHist).to_csv("uHist.csv")
             # pd.DataFrame(irisDrone.tHist).to_csv("tHist.csv")
             # pd.DataFrame(irisDrone.mpc.uHist_ude).to_csv("uHist_ude.csv")
             # pd.DataFrame(irisDrone.mpc.xHist).to_csv("xHist.csv")
+
+            # util.plot(irisDrone.mpc.xHist,irisDrone.mpc.uHist,irisDrone.mpc.uHist_ude,init)
         irisDrone.rate.sleep()
 
 def safetyCheckFail(irisDrone):
@@ -132,7 +110,7 @@ def safetyCheckFail(irisDrone):
         return True
     
     # check cable connection
-    if util.norm(dr_pos-pld_pos) > (init.params["cable_len"] + 0.05):
+    if np.linalg.norm(dr_pos-pld_pos) > (init.params["cable_len"] + 0.05):
         msg.data = "Activate failsafe...payload disconnected from body."
         irisDrone.pub_status.publish(msg)
         return True
@@ -156,42 +134,59 @@ def safetyCheckFail(irisDrone):
         return True
     return False
 
-def testing(irisDrone): 
+# def testing(irisDrone): 
 
-    go2start(irisDrone)
-    rospy.loginfo("Reached Start point. Starting MPC solver loop.")
+#     go2start(irisDrone)
+#     rospy.loginfo("Reached Start point. Starting MPC solver loop.")
 
-    i = 0
-    i_max = init.u_preGen.shape[0]
-    t0 = rospy.Time.now().nsecs * 10e-9
-    while not rospy.is_shutdown():
-        t_elapsed = rospy.Time.now().nsecs * 10e-9 - t0
-        if i < i_max:
-            thrust, quat = att.att_extract(init.u_preGen[i,:])
-            # thrust,quat = att.att_extract(np.array([0.3258203,-0.41344817,-19.99157252]))
-            irisDrone._pub_mpc_cmd(thrust, quat)
-            last_pos = irisDrone._mocap_uav.position
+#     i = 0
+#     i_max = init.u_preGen.shape[0]
+#     t0 = rospy.Time.now().nsecs * 10e-9
+#     while not rospy.is_shutdown():
+#         t_elapsed = rospy.Time.now().nsecs * 10e-9 - t0
+#         if i < i_max:
+#             thrust, quat = att.att_extract(init.u_preGen[i,:])
+#             # thrust,quat = att.att_extract(np.array([0.3258203,-0.41344817,-19.99157252]))
+#             irisDrone._pub_mpc_cmd(thrust, quat)
+#             last_pos = irisDrone._mocap_uav.position
             
-            print(i, ' thrust is: ', thrust)
-            i += 1
+#             print(i, ' thrust is: ', thrust)
+#             i += 1
             
-            # if t_elapsed > 0.01:
-            #     print(i, ' thrust is: ', thrust)
-            #     i += 1
-            #     t0 = rospy.Time.now().nsecs * 10e-9
+#             # if t_elapsed > 0.01:
+#             #     print(i, ' thrust is: ', thrust)
+#             #     i += 1
+#             #     t0 = rospy.Time.now().nsecs * 10e-9
 
-            if i == i_max: 
-                print('last pos: ', last_pos)
-        else:
-            irisDrone._pub_hold_pos(last_pos)
+#             if i == i_max: 
+#                 print('last pos: ', last_pos)
+#         else:
+#             irisDrone._pub_hold_pos(last_pos)
         
-        irisDrone.rate.sleep()
+#         irisDrone.rate.sleep()
 
+def testing(irisDrone):
+    xref = np.vstack((init.params["mission"]["pld_rel_pos"],
+                              init.params["mission"]["uav_pos"], 
+                              init.params["mission"]["pld_rel_vel"], 
+                              init.params["mission"]["uav_vel"]))
+    
+    i = 0
+    i_max = init.x_preGen.shape[0]
+
+    for i in range(0,i_max):
+        irisDrone.mpc._solve_mpc(xref,init.x_preGen[i,:])
+        irisDrone.mpc.xHist = np.vstack((irisDrone.mpc.xHist,
+                                np.vstack((irisDrone.mpc.pld_rel_pos,
+                                            irisDrone.mpc.uav_pos, 
+                                            irisDrone.mpc.pld_rel_vel,
+                                            irisDrone.mpc.uav_vel)).T))
+    util.plot(irisDrone.mpc.xHist,irisDrone.mpc.uHist,irisDrone.mpc.uHist_ude,init)    
+    
 if __name__ == '__main__': 
     try: 
         rospy.init_node('mpc_SITL', anonymous=True)
-        args, solver = mpc._genSolver()
-        irisDrone = runROSNode(args,solver)
+        irisDrone = runROSNode()
         # status_msg = String()
         
         # fly uav to start position

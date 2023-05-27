@@ -3,25 +3,25 @@ import time
 import rospy
 import numpy as np
 import pandas as pd
-import init
-import util_fcn as util
+
+# import init
+import init_setting as init
 from MPCController import runMPC
 from PIDController import runPID
-# from PIDTest import runPID
 import attitude_conversion as att
 
 import rospy
-from geometry_msgs.msg import PoseStamped, Vector3Stamped
-from mavros_msgs.msg import Thrust, PositionTarget, AttitudeTarget
-from mavros_msgs.srv import CommandBool, CommandTOL, SetMode, SetModeRequest
+from geometry_msgs.msg import Vector3Stamped
+from mavros_msgs.msg import PositionTarget, AttitudeTarget
+from mavros_msgs.srv import CommandBool, CommandTOL
 from optitrack_broadcast.msg import Mocap
 from std_msgs.msg import String
 
 class runROSNode(object):
-    def __init__(self,args,solver):
+    def __init__(self):
 
         # publisher
-        pub_freq = 20 # 30
+        pub_freq = 20 
         self.rate = rospy.Rate(pub_freq)
         self.pub_pos_raw = rospy.Publisher("/mavros/setpoint_raw/local", PositionTarget, queue_size=1)
         # self.pub_att = rospy.Publisher("/mavros/setpoint_raw/local", PositionTarget, queue_size=1)
@@ -35,10 +35,9 @@ class runROSNode(object):
         self.pld_odom = rospy.Subscriber('/mocap/payload', Mocap, self.pld_callback)
 
         # Controllers
-        self.mpc = runMPC(args,solver)
+        self.mpc = runMPC()
         self.pid = runPID()
 
-        self.sec_prev = 0
         self.tHist = 0
 
     def uav_callback(self,msg):
@@ -152,23 +151,26 @@ class runROSNode(object):
                             self.tHist[0,0])]])
         self.tHist = np.vstack((self.tHist,
                                 new_t))
-        self.sec_prev = self._mocap_uav.header.stamp.secs
         
-        # if goal is reached, hold uav at goal 
-        # else, run MPC solver to get next commands
-        error = mpc.uav_pos - init.params["mission"]["uav_pos"].reshape((3,1))
-        error = util.norm(error)
-        if error < 0.1: # or mpciter > 100: 
-            rospy.loginfo("Reached goal position.")
-            pd.DataFrame(mpc.xHist).to_csv("xHist.csv")
-            pd.DataFrame(mpc.uHist).to_csv("uHist.csv")
-            pd.DataFrame(mpc.uHist_ude).to_csv("uHist_ude.csv")
-            pd.DataFrame(self.tHist).to_csv("tHist.csv")
-            last_pos = self._mocap_uav.position
-            while not rospy.is_shutdown():
-                self._pub_ff_hold_pos(last_pos)
-        else:
-            self.mpc._solve_mpc(xref, self._mocap_uav, self._mocap_pld) # update ctrl input
-            thrust, quat_des = att.att_extract(mpc.F_act)
-            # thrust, quat_des = att.att_extract(mpc.u[0,:])
-            self._pub_mpc_cmd(thrust, quat_des)
+        # # if goal is reached, hold uav at goal 
+        # # else, run MPC solver to get next commands
+        # error = mpc.uav_pos - init.params["mission"]["uav_pos"].reshape((3,1))
+        # error = np.linalg.norm(error)
+        # if error < 0.1: # or mpciter > 100: 
+        #     rospy.loginfo("Reached goal position.")
+        #     pd.DataFrame(mpc.xHist).to_csv("xHist.csv")
+        #     pd.DataFrame(mpc.uHist).to_csv("uHist.csv")
+        #     pd.DataFrame(mpc.uHist_ude).to_csv("uHist_ude.csv")
+        #     pd.DataFrame(self.tHist).to_csv("tHist.csv")
+        #     last_pos = self._mocap_uav.position
+        #     while not rospy.is_shutdown():
+        #         self._pub_ff_hold_pos(last_pos)
+        # else:
+        #     mpc._solve_mpc(xref, self._mocap_uav, self._mocap_pld) # update ctrl input
+        #     # thrust, quat_des = att.att_extract(mpc.f_des)
+        #     thrust, quat_des = att.att_extract(mpc.u[0,:])
+        #     self._pub_mpc_cmd(thrust, quat_des)
+
+        mpc._solve_mpc(xref, self._mocap_uav, self._mocap_pld) # update ctrl input
+        thrust, quat_des = att.att_extract(mpc.f_des)
+        self._pub_mpc_cmd(thrust, quat_des)

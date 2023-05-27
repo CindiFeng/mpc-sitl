@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 
 import casadi as ca
-import init
+import init_setting as init
 import util_fcn as util
 import numpy as np
+from ude_module import UDE  
+import mpc_fcn 
 
 class runMPC(): 
     
-    def __init__(self,args,solver):
+    def __init__(self):
         
         # initialize solver parameters
-        self.args = args
-        self.solver = solver
+
+        self.args, self.solver = mpc_fcn._genSolver()
+
         N = init.params["control"]["predictionHorizon"]
         Nu = init.params["control"]["controlHorizon"]
         u0 = init.params["derived"]["sys_weight"] # controls from mpc solver
@@ -26,13 +29,20 @@ class runMPC():
         self.xHist = x0.T
 
         self.uHist_ude = u0.reshape((1,init.model["n_u"]))
-        self.F_ude = 0
-        self.F_act = u0
-        self.ude_int = init.params["derived"]["sys_mass"] * np.array([0,0,-init.sim["g"]]).reshape((3,1)) + u0 + self.F_ude
+        self.f_des = u0.reshape((init.model["n_u"],1))
+        self.ude = UDE(self.f_des)
 
+        self.uav_pos = x0[init.idx["x"]["uav_pos"][0]:init.idx["x"]["uav_pos"][1]]
+        self.uav_vel = x0[init.idx["x"]["uav_vel"][0]:init.idx["x"]["uav_vel"][1]]
+        self.pld_rel_pos = x0[init.idx["x"]["pld_rel_pos"][0]:init.idx["x"]["pld_rel_pos"][1]]
+        self.pld_rel_vel = x0[init.idx["x"]["pld_rel_vel"][0]:init.idx["x"]["pld_rel_vel"][1]]
+
+    # def _solve_mpc(self, xref):  # for testing in MPCController
+    # def _solve_mpc(self, xref, x_preGen): # for TESTING in run_main
+    #     self.get_odom(x_preGen)
     def _solve_mpc(self, xref, _mocap_uav, _mocap_pld): 
-        self.get_odom(_mocap_uav, _mocap_pld)
-        
+        self.get_odom(_mocap_uav, _mocap_pld)      
+
         # update MPC solver arguments and solve for control input
         N = init.params["control"]["predictionHorizon"]
         Nu = init.params["control"]["controlHorizon"]
@@ -51,6 +61,7 @@ class runMPC():
         self.args['x0'] = ca.vertcat(X0.reshape((n_X,1)),
                                      U0.reshape((n_U,1)))
         
+        # solve MPC by passing in necessary arguments for IPOPT
         sol = self.solver(
             x0=self.args['x0'],
             lbx=self.args['lbx'],
@@ -60,21 +71,25 @@ class runMPC():
             p=self.args['p']
         )
 
-        sol_x = util.DM2Arr(sol['x'][0:n_X]).T
-        self.sol_x = sol_x.reshape((N + 1, init.model['n_x']))
+        sol_x = util.DM2Arr(sol['x'][0:n_X]).T 
+        self.sol_x = sol_x.reshape((N + 1, init.model['n_x'])) # N x n_x planned states
 
         self.u = util.DM2Arr(ca.reshape(sol['x'][n_X:], 
-                                        init.model["n_u"], Nu).T)
+                                        init.model["n_u"], Nu).T) # Nu x n_u optimal input
         self.uHist = np.vstack((self.uHist,self.u[0,:]))
 
         # get UDE compensated controls
-        F_mpc = self.u[0,:].reshape((3,1))
-        # self.ude_int, self.F_ude = self.get_UDE_F(F_mpc)
-        self.get_UDE_F(F_mpc)
-        self.F_act = F_mpc - self.F_ude
-        self.uHist_ude= np.vstack((self.uHist_ude,self.F_ude.T))
-    
+        self.ude.estimateDisturbance(self.f_des, self.pld_rel_pos, 
+                                     self.pld_rel_vel, self.uav_vel)
+        f_ude = self.ude.f_ude
+        f_mpc = self.u[0,:].reshape((3,1))
+        self.f_des = f_mpc - f_ude
+        self.uHist_ude= np.vstack((self.uHist_ude,f_ude.T))
+  
     def get_odom(self, uav_msg, pld_msg):
+        """
+        Record uav and relative payload positions to match equations of motion.
+        """
         self.uav_pos = np.array([[uav_msg.position[0]],
                                  [uav_msg.position[1]],
                                  [uav_msg.position[2]]])
@@ -94,23 +109,50 @@ class runMPC():
 
         # self.uav_quat = uav_msg.quaternion
 
-    def get_UDE_F(self, F_mpc):
-    
-        ude_lambda = init.params["control"]["ude_lambda"]
-        m_p = init.params["pld_mass"]
-        m_q = init.params["uav_mass"]
-        m_tot = init.params["derived"]["sys_mass"]
-        L = init.params["cable_len"]
-        g_I=np.array([0, 0, -init.sim["g"]]).reshape((3,1))
-        Ts = init.params["control"]["sampleTime"]
-        
-        r_L = self.pld_rel_pos
-        B = np.vstack((np.eye(2), r_L.T / np.sqrt(L**2-np.linalg.norm(r_L)**2 )))
-        v_L = self.pld_rel_vel
-        v_q = self.uav_vel
-        
-        self.ude_int = self.ude_int - (m_tot * g_I + F_mpc + self.F_ude) * Ts
+############################### TESTING BELOW ##################################
+    # def get_odom(self, msg):  # for TESTING in run_main   
+    #     self.uav_pos = msg[2:5].reshape((3,1))
+    #     self.uav_vel = msg[7:].reshape((3,1))
+    #     self.pld_rel_pos = msg[0:2].reshape((2,1))
+    #     self.pld_rel_vel = msg[5:7].reshape((2,1))
 
-        self.F_ude = 1/ude_lambda * (m_p * B @ v_L + m_tot * v_q + self.ude_int)
 
-        # return ude_int, F_ude
+############################### TESTING BELOW ##################################
+    # Uncomment below to test out runMPC class
+    # def get_new_state(self):
+    #     x = ca.SX.sym('x',init.model["n_x"]) # system states
+    #     u = ca.SX.sym('u',init.model["n_u"]) # control inputs
+    #     dxdt = mpc_fcn.slungLoadDyn(x,u) # rhs of EOM
+    #     Ts = init.params["control"]["sampleTime"]
+
+    #     f = ca.Function('sys_dyn',[x,u],[dxdt]) # nonlinear mapping function f(x,u)
+    #     x_current = np.vstack((self.pld_rel_pos, self.uav_pos, self.pld_rel_vel, self.uav_vel))
+    #     x_next = util.DM2Arr(util.RK4(f,Ts,x_current,self.u[0,:]))
+    #     self.uav_pos = x_next[init.idx["x"]["uav_pos"][0]:init.idx["x"]["uav_pos"][1]]
+    #     self.uav_vel = x_next[init.idx["x"]["uav_vel"][0]:init.idx["x"]["uav_vel"][1]]
+    #     self.pld_rel_pos = x_next[init.idx["x"]["pld_rel_pos"][0]:init.idx["x"]["pld_rel_pos"][1]]
+    #     self.pld_rel_vel = x_next[init.idx["x"]["pld_rel_vel"][0]:init.idx["x"]["pld_rel_vel"][1]]
+
+
+# Uncomment below to test out runMPC class
+# if __name__ == '__main__':
+#     mpc = runMPC()
+#     mpc_maxiter = int(init.sim["duration"]/init.params["control"]["sampleTime"])
+#     mpciter = 0
+
+#     xref = np.vstack((init.params["mission"]["pld_rel_pos"], 
+#                  init.params["mission"]["uav_pos"], 
+#                  init.params["mission"]["pld_rel_vel"], 
+#                  init.params["mission"]["uav_vel"]))
+
+#     while mpciter < mpc_maxiter: 
+#         mpc._solve_mpc(xref)
+#         mpc.get_new_state()
+#         x_next = np.vstack((mpc.pld_rel_pos,
+#                             mpc.uav_pos,
+#                             mpc.pld_rel_vel,
+#                             mpc.uav_vel)) 
+#         mpc.xHist = np.vstack((mpc.xHist, x_next.T))
+#         mpciter += 1
+
+#     util.plot(mpc.xHist,mpc.uHist,mpc.uHist_ude,init)

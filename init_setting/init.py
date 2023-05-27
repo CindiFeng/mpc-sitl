@@ -26,15 +26,15 @@ for i in ics:
     n = len(ics[i]) # size of list
     ics[i] = np.array(ics[i]).reshape(n,1) 
 
-x_preGen = np.loadtxt("xRef.csv", delimiter=",")
-u_preGen = np.loadtxt("uRef.csv",delimiter=",")
+x_preGen = np.loadtxt(dir+"/xRef.csv", delimiter=",")
+u_preGen = np.loadtxt(dir+"/uRef.csv",delimiter=",")
 
 # simulation environment parameters
 sim = {
     "g" : 9.80665,
     "grav" : np.array([0, 0, 9.80665]).reshape(3,1),
     "workspace" : np.array([[-0.6,  -1, 0],   # min x, y, z
-                            [ 0.6,  10, 6]]),  # max x, y, z
+                            [ 0.4,  10, 6]]),  # max x, y, z
     "obs_pos" : np.array([-0.4, 1.5, 3.9]).reshape(3,1),
     "obs_dim" : np.array([0.68, 0.55, 0.9]),
     "duration" : 6,

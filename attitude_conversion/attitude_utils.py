@@ -40,16 +40,26 @@ def rotm2quat(rotm): return scipyR.from_matrix(rotm).as_quat()
 
 def eul2quat(eul): return scipyR.from_euler('xyz',eul,degrees=False).as_quat()
 
+def force2thrust(f_des):
+    """
+    Input: 3D desired force vector
+    Return: magnitude and normalized thrust
+    """
+    f_mag = np.linalg.norm(f_des)
+
+    # thrust must be between 0 and 1
+    thrust = (f_mag + 6)/36 
+    if thrust > 1: 
+        thrust = 1
+
+    return f_mag, thrust
+
 def att_extract(f_ctrl): 
         """
         Takes control input (in ENU) from mpc solver to derive desired quaternion
         """
 
-        f_mag = np.linalg.norm(f_ctrl)
-        # thrust_norm = (f_mag + 6)/31
-        thrust_norm = (f_mag + 6)/36
-        if thrust_norm > 1: 
-             thrust_norm = 1
+        f_mag, thrust_norm = force2thrust(f_ctrl)
         
         psi_des = 0 # command yaw angle 
         
@@ -58,8 +68,8 @@ def att_extract(f_ctrl):
         n_x_tilde = np.array([np.cos(psi_des), np.sin(psi_des), 
                         -(np.cos(psi_des) * n_z[0,0] + np.sin(psi_des) * 
                         n_z[1,0]) / n_z[2,0]]).reshape((3,1))
-        n_x = n_x_tilde / norm(n_x_tilde)
-        n_y = hat(n_z) @ n_x / norm(hat(n_z) @ n_x)
+        n_x = n_x_tilde / np.linalg.norm(n_x_tilde)
+        n_y = hat(n_z) @ n_x / np.linalg.norm(hat(n_z) @ n_x)
         R_des = np.hstack((n_x, n_y, n_z))
 
         quat_des = rotm2quat(R_des)

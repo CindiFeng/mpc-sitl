@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 import numpy as np
 import casadi as ca
-import init
+import init_setting as init
 import util_fcn as util
 
 def slungLoadDyn(x,u):
@@ -219,14 +219,14 @@ def _genSolver():
 
     state_min = -ca.inf*np.ones((init.model["n_x"],1))
     state_max = ca.inf*np.ones((init.model["n_x"],1))
-    state_min[init.idx["x"]["uav_pos"][0]:init.idx["x"]["uav_pos"][1]] = \
-        init.sim["workspace"][0].reshape(3,1) + np.array([init.params["arm_len"], \
-                                                        init.params["arm_len"], \
-                                                            0]).reshape(3,1)
-    state_max[init.idx["x"]["uav_pos"][0]:init.idx["x"]["uav_pos"][1]] = \
-        init.sim["workspace"][1].reshape(3,1) - np.array([init.params["arm_len"], \
-                                                        init.params["arm_len"], \
-                                                            0]).reshape(3,1)
+    # state_min[init.idx["x"]["uav_pos"][0]:init.idx["x"]["uav_pos"][1]] = \
+    #     init.sim["workspace"][0].reshape(3,1) + np.array([init.params["arm_len"], \
+    #                                                     init.params["arm_len"], \
+    #                                                         0]).reshape(3,1)
+    # state_max[init.idx["x"]["uav_pos"][0]:init.idx["x"]["uav_pos"][1]] = \
+    #     init.sim["workspace"][1].reshape(3,1) - np.array([init.params["arm_len"], \
+    #                                                     init.params["arm_len"], \
+    #                                                         0]).reshape(3,1)
     for i in range(init.model["n_x"]):
         lbx[i:n_X:init.model["n_x"]] = state_min[i] # state lower limit
         ubx[i:n_X:init.model["n_x"]] = state_max[i] # state upper limit
