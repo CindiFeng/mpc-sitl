@@ -188,9 +188,8 @@ def _genSolver():
             con_obs = ca.vertcat(con_obs, ineq_fcn[init.idx["g"]["ineq_obs"][0]:init.idx["g"]["ineq_obs"][1]])
             con_pld_d = ca.vertcat(con_pld_d, ineq_fcn[init.idx["g"]["ineq_pld_d"]])
 
-    # con_fcn = ca.vertcat(con_eq, con_ws, con_obs, con_pld_d) # inequality constraints
-    # con_fcn = ca.vertcat(con_eq, con_ws, con_obs)
-    con_fcn = con_eq
+    con_fcn = ca.vertcat(con_eq, con_ws, con_obs) # inequality constraints 
+    # con_fcn = ca.vertcat(con_eq, con_ws)
 
     # Set equality and inequality constraints
     # upper/lower function bounds lb <= g <= ub
@@ -201,16 +200,16 @@ def _genSolver():
     lbg[init.idx["g"]["eq"][0]:init.idx["g"]["eq"][1]] = 0 
     ubg[init.idx["g"]["eq"][0]:init.idx["g"]["eq"][1]] = 0
 
-    # # bounds on workspace constraints
-    # n_repeat = int((init.idx["g"]["ws"][1] - init.idx["g"]["ws"][0]) / 3)
-    # lbg[init.idx["g"]["ws"][0]:init.idx["g"]["ws"][1]] = \
-    #     np.tile(init.sim["workspace"][0,:].reshape(3,1), (n_repeat,1)) 
-    # ubg[init.idx["g"]["ws"][0]:init.idx["g"]["ws"][1]] = \
-    #     np.tile(init.sim["workspace"][1,:].reshape(3,1), (n_repeat,1))
+    # bounds on workspace constraints
+    n_repeat = int((init.idx["g"]["ws"][1] - init.idx["g"]["ws"][0]) / 3)
+    lbg[init.idx["g"]["ws"][0]:init.idx["g"]["ws"][1]] = \
+        np.tile(init.sim["workspace"][0,:].reshape(3,1), (n_repeat,1)) 
+    ubg[init.idx["g"]["ws"][0]:init.idx["g"]["ws"][1]] = \
+        np.tile(init.sim["workspace"][1,:].reshape(3,1), (n_repeat,1))
 
-    # # bounds on collision avoidance constraints
-    # lbg[init.idx["g"]["obs"][0]:init.idx["g"]["obs"][1]] = 0 
-    # ubg[init.idx["g"]["obs"][0]:init.idx["g"]["obs"][1]] = ca.inf
+    # bounds on collision avoidance constraints
+    lbg[init.idx["g"]["obs"][0]:init.idx["g"]["obs"][1]] = 0 
+    ubg[init.idx["g"]["obs"][0]:init.idx["g"]["obs"][1]] = ca.inf
 
     # Set hard constraints on states and input
     # upper/lower variable bounds lb <= x <= ub
@@ -219,14 +218,14 @@ def _genSolver():
 
     state_min = -ca.inf*np.ones((init.model["n_x"],1))
     state_max = ca.inf*np.ones((init.model["n_x"],1))
-    # state_min[init.idx["x"]["uav_pos"][0]:init.idx["x"]["uav_pos"][1]] = \
-    #     init.sim["workspace"][0].reshape(3,1) + np.array([init.params["arm_len"], \
-    #                                                     init.params["arm_len"], \
-    #                                                         0]).reshape(3,1)
-    # state_max[init.idx["x"]["uav_pos"][0]:init.idx["x"]["uav_pos"][1]] = \
-    #     init.sim["workspace"][1].reshape(3,1) - np.array([init.params["arm_len"], \
-    #                                                     init.params["arm_len"], \
-    #                                                         0]).reshape(3,1)
+    state_min[init.idx["x"]["uav_pos"][0]:init.idx["x"]["uav_pos"][1]] = \
+        init.sim["workspace"][0].reshape(3,1) + np.array([init.params["arm_len"], \
+                                                        init.params["arm_len"], \
+                                                            0]).reshape(3,1)
+    state_max[init.idx["x"]["uav_pos"][0]:init.idx["x"]["uav_pos"][1]] = \
+        init.sim["workspace"][1].reshape(3,1) - np.array([init.params["arm_len"], \
+                                                        init.params["arm_len"], \
+                                                            0]).reshape(3,1)
     for i in range(init.model["n_x"]):
         lbx[i:n_X:init.model["n_x"]] = state_min[i] # state lower limit
         ubx[i:n_X:init.model["n_x"]] = state_max[i] # state upper limit

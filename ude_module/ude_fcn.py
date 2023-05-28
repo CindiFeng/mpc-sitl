@@ -4,7 +4,6 @@ sys.path.insert(0, '/home/fmncindi/Research/scripts/mpc/')
 import numpy as np
 import init_setting as init
 import attitude_conversion as att
-import matplotlib.pyplot as plt
 
 # This class provides UDE algorithm to correct the input received by robot
 class UDE():
@@ -51,6 +50,7 @@ class UDE():
         self.f_ude = 1/ude_lambda * (m_p * B @ v_L + m_tot * v_q + self.ude_int)
 
 # Uncomment below to test out UDE class
+# import matplotlib.pyplot as plt
 # if __name__ == '__main__': 
 #     uRef = np.vstack((init.params["derived"]["sys_mass"] *
 #                         np.array([0,0,init.sim["g"]]).reshape((1,3)),init.u_preGen[:-2,:]))

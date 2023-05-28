@@ -197,7 +197,7 @@ if __name__ == '__main__':
         rospy.loginfo("Waiting for 2 seconds to connect to subscriber.")
         time.sleep(2)
         rospy.loginfo("Wait is over.")
-        
+
         if TESTING: 
             testing(irisDrone)
         else:        

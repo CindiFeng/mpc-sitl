@@ -173,4 +173,5 @@ class runROSNode(object):
 
         mpc._solve_mpc(xref, self._mocap_uav, self._mocap_pld) # update ctrl input
         thrust, quat_des = att.att_extract(mpc.f_des)
+        # thrust, quat_des = att.att_extract(mpc.u[0,:])
         self._pub_mpc_cmd(thrust, quat_des)

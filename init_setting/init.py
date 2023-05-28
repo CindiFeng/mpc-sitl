@@ -33,8 +33,8 @@ u_preGen = np.loadtxt(dir+"/uRef.csv",delimiter=",")
 sim = {
     "g" : 9.80665,
     "grav" : np.array([0, 0, 9.80665]).reshape(3,1),
-    "workspace" : np.array([[-0.6,  -1, 0],   # min x, y, z
-                            [ 0.4,  10, 6]]),  # max x, y, z
+    "workspace" : np.array([[-0.7,  -1, 0],   # min x, y, z
+                            [ 0.7,  10, 6]]),  # max x, y, z
     "obs_pos" : np.array([-0.4, 1.5, 3.9]).reshape(3,1),
     "obs_dim" : np.array([0.68, 0.55, 0.9]),
     "duration" : 6,

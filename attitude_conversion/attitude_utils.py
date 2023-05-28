@@ -59,7 +59,7 @@ def att_extract(f_ctrl):
         Takes control input (in ENU) from mpc solver to derive desired quaternion
         """
 
-        f_mag, thrust_norm = force2thrust(f_ctrl)
+        f_mag, thrust = force2thrust(f_ctrl)
         
         psi_des = 0 # command yaw angle 
         
@@ -73,4 +73,4 @@ def att_extract(f_ctrl):
         R_des = np.hstack((n_x, n_y, n_z))
 
         quat_des = rotm2quat(R_des)
-        return (thrust_norm, quat_des)
+        return (thrust, quat_des)
