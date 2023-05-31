@@ -21,7 +21,7 @@ class runROSNode(object):
     def __init__(self):
 
         # publisher
-        pub_freq = 20 
+        pub_freq = init.pub_rate 
         self.rate = rospy.Rate(pub_freq)
         self.pub_pos_raw = rospy.Publisher("/mavros/setpoint_raw/local", PositionTarget, queue_size=1)
         # self.pub_att = rospy.Publisher("/mavros/setpoint_raw/local", PositionTarget, queue_size=1)

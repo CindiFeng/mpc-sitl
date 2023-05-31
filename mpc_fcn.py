@@ -94,23 +94,18 @@ def costFcn(x_cur,u_cur,P):
     pld_rel_vel = x_cur[init.idx["x"]["pld_rel_vel"][0]:init.idx["x"]["pld_rel_vel"][1]]
     x_goal = P[init.idx["p"]["x_goal"][0]:init.idx["p"]["x_goal"][1]]
     uav_goal = x_goal[init.idx["x"]["uav_pos"][0]:init.idx["x"]["uav_pos"][1]]
-    x_start = P[init.idx["p"]["x0"][0]:init.idx["p"]["x0"][1]]
-    uav_start = x_start[init.idx["x"]["uav_pos"][0]:init.idx["x"]["uav_pos"][1]]
 
-    # denom = sq_norm(uav_goal - uav_start) # cannot start at goal!!!
-    # cost_nav = init.params["control"]["cost_nav"] * np.linalg.norm(uav_goal-uav_pos) / denom
-    nav = uav_vel + init.params["control"]["cost_nav_kp"] * (uav_pos - uav_goal)
+    nav = uav_vel + init.params["control"]["cost_nav_kp"] * (uav_pos - uav_goal) / \
+            np.sqrt(init.params["control"]["cost_nav_c"] + \
+                    (uav_pos - uav_goal).T @ (uav_pos - uav_goal))
     cost_nav = init.params["control"]["cost_nav"] * (nav.T @ nav)
 
-    cost_nav_k = init.params["control"]["cost_nav_k"] * util.ca_sq_norm(uav_goal - uav_pos)
-
-    # cost_swing = init.params["control"]["cost_swing"] * np.linalg.norm(pld_rel_pos)
     swing = pld_rel_vel + init.params["control"]["cost_swing_kp"] * pld_rel_pos
     cost_swing = init.params["control"]["cost_swing"] * (swing.T @ swing)
 
     cost_in = init.params["control"]["cost_in"] * util.ca_sq_norm(u_cur - init.params["derived"]["sys_weight"])
 
-    J = cost_nav + cost_nav_k + cost_in + cost_swing
+    J = cost_nav + cost_in + cost_swing
 
     return J
 
@@ -190,6 +185,7 @@ def _genSolver():
 
     con_fcn = ca.vertcat(con_eq, con_ws, con_obs) # inequality constraints 
     # con_fcn = ca.vertcat(con_eq, con_ws)
+    # con_fcn = con_eq
 
     # Set equality and inequality constraints
     # upper/lower function bounds lb <= g <= ub

@@ -24,7 +24,7 @@
     "uav_pos": [
       [
         -0.2,
-        3,
+        6,
         5.2
       ]
     ],
@@ -56,13 +56,14 @@
     "mvRatesWeights": [[0.01,0.03,0.05]],
     "mvWeights": [[0.1,0.3,0.9]],
     "cost_swing": 1,
-    "cost_in": 0.5,
+    "cost_in": 1,
     "cost_nav": 0.5,
-    "cost_nav_N": 10,
+    "cost_nav_N": 100,
     "cost_nav_k": 0,
     "cost_swing_kp": 1,
     "cost_nav_kp": 2,
-    "ude_lambda": 1
+    "cost_nav_c": 0.1,
+    "ude_lambda": 0.5
   },
   "obstacle":{
     "bo": 0.05,

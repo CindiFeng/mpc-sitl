@@ -38,7 +38,7 @@ class UDE():
         m_tot = init.params["derived"]["sys_mass"]
         L = init.params["cable_len"]
         g_I=np.array([0, 0, -init.sim["g"]]).reshape((3,1))
-        Ts = init.params["control"]["sampleTime"]
+        Ts = 1/init.pub_rate # init.params["control"]["sampleTime"]
         
         r_L = pld_rel_pos
         B = np.vstack((np.eye(2), r_L.T / np.sqrt(L**2-np.linalg.norm(r_L)**2 )))
