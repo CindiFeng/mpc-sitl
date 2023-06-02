@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import time
 import rospy
 import numpy as np
@@ -6,7 +7,7 @@ import pandas as pd
 
 # import init
 import init_setting as init
-from MPCController import runMPC
+from mpc_controller.run_mpc import runMPC
 from PIDController import runPID
 import attitude_conversion as att
 
@@ -18,7 +19,7 @@ from optitrack_broadcast.msg import Mocap
 from std_msgs.msg import String
 
 class runROSNode(object):
-    def __init__(self):
+    def __init__(self, tracking):
 
         # publisher
         pub_freq = init.pub_rate 
@@ -35,7 +36,7 @@ class runROSNode(object):
         self.pld_odom = rospy.Subscriber('/mocap/payload', Mocap, self.pld_callback)
 
         # Controllers
-        self.mpc = runMPC()
+        self.mpc = runMPC(tracking)
         self.pid = runPID()
 
         self.tHist = 0
@@ -151,27 +152,22 @@ class runROSNode(object):
                             self.tHist[0,0])]])
         self.tHist = np.vstack((self.tHist,
                                 new_t))
-        
-        # # if goal is reached, hold uav at goal 
-        # # else, run MPC solver to get next commands
-        # error = mpc.uav_pos - init.params["mission"]["uav_pos"].reshape((3,1))
-        # error = np.linalg.norm(error)
-        # if error < 0.1: # or mpciter > 100: 
-        #     rospy.loginfo("Reached goal position.")
-        #     pd.DataFrame(mpc.xHist).to_csv("xHist.csv")
-        #     pd.DataFrame(mpc.uHist).to_csv("uHist.csv")
-        #     pd.DataFrame(mpc.uHist_ude).to_csv("uHist_ude.csv")
-        #     pd.DataFrame(self.tHist).to_csv("tHist.csv")
-        #     last_pos = self._mocap_uav.position
-        #     while not rospy.is_shutdown():
-        #         self._pub_ff_hold_pos(last_pos)
-        # else:
-        #     mpc._solve_mpc(xref, self._mocap_uav, self._mocap_pld) # update ctrl input
-        #     # thrust, quat_des = att.att_extract(mpc.f_des)
-        #     thrust, quat_des = att.att_extract(mpc.u[0,:])
-        #     self._pub_mpc_cmd(thrust, quat_des)
 
         mpc._solve_mpc(xref, self._mocap_uav, self._mocap_pld) # update ctrl input
         thrust, quat_des = att.att_extract(mpc.f_des)
-        # thrust, quat_des = att.att_extract(mpc.u[0,:])
         self._pub_mpc_cmd(thrust, quat_des)
+
+    def _run_mpc_track(self, xref):
+        mpc = self.mpc
+        mpc.xHist = np.vstack((mpc.xHist,
+                               np.vstack((mpc.pld_rel_pos,
+                                          mpc.uav_pos, 
+                                          mpc.pld_rel_vel,
+                                          mpc.uav_vel)).T))
+        new_t = np.array([[(self._mocap_uav.header.stamp.secs + 
+                            self._mocap_uav.header.stamp.nsecs * 1e-9 - 
+                            self.tHist[0,0])]])
+        self.tHist = np.vstack((self.tHist,
+                                new_t))
+
+        mpc._solve_mpc(xref, self._mocap_uav, self._mocap_pld) # update ctrl input

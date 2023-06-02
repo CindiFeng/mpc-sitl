@@ -1,4 +1,14 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+
+### TODO: FIX PATHS SO THIS INSERT IS NOT NECESSARY ###
+# gives the path of this file
+import os
+path = os.path.realpath(__file__)
+dir = os.path.dirname(path)
+import sys
+sys.path.insert(0, dir)
+#########################################################
+
 import numpy as np
 import casadi as ca
 import init_setting as init
@@ -109,6 +119,39 @@ def costFcn(x_cur,u_cur,P):
 
     return J
 
+def costFcn_tracking(x_cur,u_cur,P):
+    """ 
+    INPUT:  x_cur, column state vector
+            - payload relative position (r_p)
+            - uav position (x_q)
+            - payload relative velocity (v_p)
+            - uav velocity (v_q)
+
+            u_cur, column input vector
+            - 3x lift force (F_L) vector in NED frame
+
+            P, column x0 and xref vector
+    """
+
+    # assign variables
+    x_goal = P[init.idx["p"]["x_goal"][0]:init.idx["p"]["x_goal"][1]] # ref states
+    des_rel_pld_dist = util.ca_sq_norm(x_goal[init.idx["x"]["pld_rel_pos"][0]:init.idx["x"]["pld_rel_pos"][1]])
+    des_uav_pos = x_goal[init.idx["x"]["uav_pos"][0]:init.idx["x"]["uav_pos"][1]]
+    uav_pos = x_cur[init.idx["x"]["uav_pos"][0]:init.idx["x"]["uav_pos"][1]]
+    uav_pos_err = uav_pos - des_uav_pos
+    nav = ca.vertcat(des_rel_pld_dist,uav_pos_err)
+    
+    cost_x = nav.T @ ca.diag(ca.SX(init.params["control"]["outputWeights"])) @ nav
+
+    cost_in = ((u_cur - init.params["derived"]["sys_weight"]).T @ 
+               ca.diag(ca.SX(init.params["control"]["mvWeights"])) @ 
+               (u_cur - init.params["derived"]["sys_weight"]))
+    # cost_in = init.params["control"]["cost_in"] * util.ca_sq_norm(u_cur - init.params["derived"]["sys_weight"])
+
+    J = cost_x + cost_in 
+
+    return J
+
 def _genSolver():
     """
     Uses CasADi symbolics framework to interface with IPOPT solver. 
@@ -149,7 +192,6 @@ def _genSolver():
     con_pld_d = []
     con_eq = X[:,0]-P[init.idx['p']['x0'][0]:init.idx['p']['x0'][1]] # start equality constraints
 
-    u_prev = U[:,0] # for input rate cost
     for k in range(0, N):
         x_cur = X[:,k] # actual states
         
@@ -228,6 +270,113 @@ def _genSolver():
 
     # input_min = -ca.inf*np.ones((init.model["n_u"],1))
     # input_max = ca.inf*np.ones((init.model["n_u"],1))
+    input_min = np.array([-15,-15,0])
+    input_max = np.array([15,15,35])
+    for i in range(init.model["n_u"]):
+        lbx[n_X+i:n_XU:init.model["n_u"]] = input_min[i] #input lower limit
+        ubx[n_X+i:n_XU:init.model["n_u"]] = input_max[i] #input upper limit
+
+    # inequality constraint arguments
+    args = {
+        'lbg' : lbg,
+        'ubg' : ubg,
+        'lbx' : lbx,
+        'ubx' : ubx
+    }
+
+    # set up solver
+    nlp_prob = {
+        'f': obj_fcn,
+        'x': decision_var,
+        'g': con_fcn,
+        'p': P
+    }
+
+    codeopts = {
+        'ipopt': {
+            'max_iter': 1000,
+            'print_level': 0,
+            'acceptable_tol': 1e-8,
+            'acceptable_obj_change_tol': 1e-4
+        },
+        'print_time': 0
+    }
+
+    solver = ca.nlpsol('solver', 'ipopt', nlp_prob, codeopts)
+
+    return(args, solver)
+
+def _genSolver_tracking():
+    """
+    Uses CasADi symbolics framework to interface with IPOPT solver. 
+    Objective function and inequality equations are built up using CasADi 
+    symbolics and passed to the IPOPT solver generation class.
+    
+    Input: none
+    Return: args <dict>
+            solver <IPOPT solver class>
+    """
+
+    # Design Nonlinear init.model Predictive Controller
+    N = init.params["control"]["predictionHorizon"]
+    Nu = init.params["control"]["controlHorizon"]
+    Ts = init.params["control"]["sampleTime"]
+
+    x = ca.SX.sym('x',init.model["n_x"]) # system states
+    u = ca.SX.sym('u',init.model["n_u"]) # control inputs
+    dxdt = slungLoadDyn(x,u) # rhs of EOM
+
+    sys_dyn = ca.Function('sys_dyn',[x,u],[dxdt]) # nonlinear mapping function f(x,u)
+    U = ca.SX.sym('U',init.model["n_u"],Nu) # manipulative variables
+    P = ca.SX.sym('P',init.model["n_p"]) # parameters incl x0 and xref
+    X = ca.SX.sym('X',init.model["n_x"],(N + 1)) # states over the prediction horizon
+
+    n_X = init.model["n_x"] * (N + 1) # number of predicted states
+    n_U = init.model["n_u"] * Nu # number of predicted inputs
+
+    # Make decision variable one column vector with X and U over N horizon
+    decision_var = ca.vertcat(ca.reshape(X,n_X,1), ca.reshape(U,n_U,1))
+    n_XU = n_X + n_U
+
+    # iniitialize objective function and equality/inequality vectors
+    obj_fcn = 0
+
+    con_eq = X[:,0]-P[init.idx['p']['x0'][0]:init.idx['p']['x0'][1]] # start equality constraints
+
+    for k in range(0, N):
+        x_cur = X[:,k] # actual states
+        
+        # optimize input up to Nu
+        if k < Nu:
+            u_cur = U[:,k] # controls 
+        else:
+            u_cur = U[:,Nu-1]
+        
+        x_next = X[:,k+1] # evaluated states at next time step f(x,u)
+        x_next_actual = util.RK4(sys_dyn,Ts,x_cur,u_cur) # discretized via RK4
+        
+        # constraints
+        con_eq = ca.vertcat(con_eq, x_next-x_next_actual) # multiple shooting equality
+        
+        # objective function
+        obj_fcn = obj_fcn + costFcn_tracking(x_cur,u_cur,P)       
+        
+    con_fcn = con_eq
+
+    # Set equality and inequality constraints
+    # upper/lower function bounds lb <= g <= ub
+    lbg = np.zeros((con_fcn.shape[0],1))
+    ubg = np.zeros((con_fcn.shape[0],1))
+
+    # bounds on equality constraints
+    lbg[init.idx["g"]["eq"][0]:init.idx["g"]["eq"][1]] = 0 
+    ubg[init.idx["g"]["eq"][0]:init.idx["g"]["eq"][1]] = 0
+
+    # Set hard constraints on states and input
+    # upper/lower variable bounds lb <= x <= ub
+    lbx = -ca.inf*np.ones((n_XU,1))
+    ubx = ca.inf*np.ones((n_XU,1))
+
     input_min = np.array([-15,-15,0])
     input_max = np.array([15,15,35])
     for i in range(init.model["n_u"]):

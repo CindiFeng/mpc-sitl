@@ -1,15 +1,18 @@
+# -*- coding: utf-8 -*-
+
+### TODO: FIX PATHS SO THIS INSERT IS NOT NECESSARY ###
 import sys
 sys.path.insert(0, '/home/fmncindi/Research/scripts/mpc/init_setting')
+#######################################################
 
-# -*- coding: utf-8 -*-
-import json as js 
 import os 
+import json as js 
 import numpy as np
 import para_list
 
 # gives the path of this file
 path = os.path.realpath(__file__)
-dir = dir = os.path.dirname(path)
+dir = os.path.dirname(path)
 
 # load all simulation parameters
 params_filepath = dir + '/params.json' 
@@ -31,7 +34,9 @@ for i in ics:
     ics[i] = np.array(ics[i]).reshape(n,1) 
 
 x_preGen = np.loadtxt(dir+"/xRef.csv", delimiter=",")
-u_preGen = np.loadtxt(dir+"/uRef.csv",delimiter=",")
+x_track1 = np.loadtxt(dir+"/x_track.csv", delimiter=",")
+x_track2 = np.loadtxt(dir+"/x_track2.csv", delimiter=",")
+# u_preGen = np.loadtxt(dir+"/uRef.csv",delimiter=",")
 
 # simulation environment parameters
 

@@ -6,11 +6,10 @@ import time
 import numpy as np
 import pandas as pd
 
-# import init
 import init_setting as init
 from rosInterface import runROSNode
 import attitude_conversion as att
-import util_fcn as util 
+import mpc_controller.util_fcn as util 
 
 WS_X_MAX = 4
 WS_Y_MAX = 1
@@ -18,7 +17,7 @@ WS_Z_MAX = 7
 WS_X_MIN = -1
 WS_Y_MIN = -1
 WS_Z_MIN = 0
-TRACKING = False
+TRACKING = True
 TESTING = False
 
 def go2start(irisDrone):
@@ -65,19 +64,22 @@ def main_loop(irisDrone):
         #     irisDrone._pub_land()
         # else:
         #     irisDrone._run_mpc()
-        if TRACKING:
-            # PX4 position control to follow pre-generated waypoints
-            if i < i_max:
-                xref = init.x_preGen[i,2:5]
-                # irisDrone.mpc._solve_mpc(init.x_preGen[i,:], irisDrone._mocap_uav, irisDrone._mocap_pld)
-                irisDrone.mpc._solve_mpc(np.vstack((init.params["mission"]["pld_rel_pos"],
-                              init.params["mission"]["uav_pos"], 
-                              init.params["mission"]["pld_rel_vel"], 
-                              init.params["mission"]["uav_vel"])), irisDrone._mocap_uav, irisDrone._mocap_pld)
-                i += 1
 
-            irisDrone._pub_ff_hold_pos(xref)
-            # irisDrone.mpc._solve_mpc(xref, irisDrone.mpc._mocap_uav, irisDrone.mpc._mocap_pld)
+        if TRACKING:
+            if i < i_max:
+                uav_pos_des = init.x_track1[i,2:5]
+                # irisDrone._run_mpc_track(init.x_preGen[i,:]) # for TESTING!! To see result IF*** mpc were used
+                x_des = np.vstack((init.x_track2[i,:].reshape((5,1)),np.zeros((5,1))))
+                i += 1
+                if i == i_max: 
+                    print('Done tracking...saving to folder')
+                    pd.DataFrame(irisDrone.mpc.uHist).to_csv("uHist2.csv")
+                    pd.DataFrame(irisDrone.tHist).to_csv("tHist2.csv")
+                    pd.DataFrame(irisDrone.mpc.uHist_ude).to_csv("uHist_ude2.csv")
+                    pd.DataFrame(irisDrone.mpc.xHist).to_csv("xHist2.csv")
+            
+            # irisDrone._pub_ff_hold_pos(uav_pos_des)
+            irisDrone._run_mpc(x_des)
         else:
             # MPC for point navigation tasks
             xref = np.vstack((init.params["mission"]["pld_rel_pos"],
@@ -134,42 +136,11 @@ def safetyCheckFail(irisDrone):
         return True
     return False
 
-# def testing(irisDrone): 
-
-#     go2start(irisDrone)
-#     rospy.loginfo("Reached Start point. Starting MPC solver loop.")
-
-#     i = 0
-#     i_max = init.u_preGen.shape[0]
-#     t0 = rospy.Time.now().nsecs * 10e-9
-#     while not rospy.is_shutdown():
-#         t_elapsed = rospy.Time.now().nsecs * 10e-9 - t0
-#         if i < i_max:
-#             thrust, quat = att.att_extract(init.u_preGen[i,:])
-#             # thrust,quat = att.att_extract(np.array([0.3258203,-0.41344817,-19.99157252]))
-#             irisDrone._pub_mpc_cmd(thrust, quat)
-#             last_pos = irisDrone._mocap_uav.position
-            
-#             print(i, ' thrust is: ', thrust)
-#             i += 1
-            
-#             # if t_elapsed > 0.01:
-#             #     print(i, ' thrust is: ', thrust)
-#             #     i += 1
-#             #     t0 = rospy.Time.now().nsecs * 10e-9
-
-#             if i == i_max: 
-#                 print('last pos: ', last_pos)
-#         else:
-#             irisDrone._pub_hold_pos(last_pos)
-        
-#         irisDrone.rate.sleep()
-
 def testing(irisDrone):
     xref = np.vstack((init.params["mission"]["pld_rel_pos"],
-                              init.params["mission"]["uav_pos"], 
-                              init.params["mission"]["pld_rel_vel"], 
-                              init.params["mission"]["uav_vel"]))
+                        init.params["mission"]["uav_pos"], 
+                        init.params["mission"]["pld_rel_vel"], 
+                        init.params["mission"]["uav_vel"]))
     
     i = 0
     i_max = init.x_preGen.shape[0]
@@ -186,7 +157,7 @@ def testing(irisDrone):
 if __name__ == '__main__': 
     try: 
         rospy.init_node('mpc_SITL', anonymous=True)
-        irisDrone = runROSNode()
+        irisDrone = runROSNode(TRACKING)
         # status_msg = String()
         
         # fly uav to start position

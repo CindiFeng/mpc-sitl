@@ -58,7 +58,7 @@ sim_list = [
     "g" : 9.80665,
     "grav" : np.array([0, 0, 9.80665]).reshape(3,1),
     "workspace" : np.array([[-0.7,  -1, 0],   # min x, y, z
-                            [0.5,  10, 6]]),  # max x, y, z
+                            [0.6,  10, 6]]),  # max x, y, z
     "obs_pos" : np.array([-0.4, 3.5, 3.4]).reshape(3,1),
     "obs_dim" : np.array([0.68, 0.55, 0.8]),
     "duration" : 6,

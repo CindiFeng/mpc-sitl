@@ -48,7 +48,7 @@ def force2thrust(f_des):
     f_mag = np.linalg.norm(f_des)
 
     # thrust must be between 0 and 1
-    thrust = (f_mag + 6)/36 
+    thrust = (f_mag + 6)/36
     if thrust > 1: 
         thrust = 1
 

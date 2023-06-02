@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
 
+### TODO: FIX PATHS SO THIS INSERT IS NOT NECESSARY ###
+# gives the path of this file
+import os
+path = os.path.realpath(__file__)
+dir = os.path.dirname(path)
+import sys
+sys.path.insert(1, dir)
+sys.path.insert(1, os.getcwd())
+#########################################################
+
 import casadi as ca
 import init_setting as init
 import util_fcn as util
@@ -9,11 +19,14 @@ import mpc_fcn
 
 class runMPC(): 
     
-    def __init__(self):
+    def __init__(self, tracking=False):
         
         # initialize solver parameters
 
-        self.args, self.solver = mpc_fcn._genSolver()
+        if tracking:
+            self.args, self.solver = mpc_fcn._genSolver_tracking()
+        else:
+            self.args, self.solver = mpc_fcn._genSolver()        
 
         N = init.params["control"]["predictionHorizon"]
         Nu = init.params["control"]["controlHorizon"]
@@ -118,25 +131,26 @@ class runMPC():
 
 
 ############################### TESTING BELOW ##################################
-    # Uncomment below to test out runMPC class
-    # def get_new_state(self):
-    #     x = ca.SX.sym('x',init.model["n_x"]) # system states
-    #     u = ca.SX.sym('u',init.model["n_u"]) # control inputs
-    #     dxdt = mpc_fcn.slungLoadDyn(x,u) # rhs of EOM
-    #     Ts = init.params["control"]["sampleTime"]
+#     # Uncomment below to test out runMPC class
+#     def get_new_state(self):
+#         x = ca.SX.sym('x',init.model["n_x"]) # system states
+#         u = ca.SX.sym('u',init.model["n_u"]) # control inputs
+#         dxdt = mpc_fcn.slungLoadDyn(x,u) # rhs of EOM
+#         Ts = init.params["control"]["sampleTime"]
 
-    #     f = ca.Function('sys_dyn',[x,u],[dxdt]) # nonlinear mapping function f(x,u)
-    #     x_current = np.vstack((self.pld_rel_pos, self.uav_pos, self.pld_rel_vel, self.uav_vel))
-    #     x_next = util.DM2Arr(util.RK4(f,Ts,x_current,self.u[0,:]))
-    #     self.uav_pos = x_next[init.idx["x"]["uav_pos"][0]:init.idx["x"]["uav_pos"][1]]
-    #     self.uav_vel = x_next[init.idx["x"]["uav_vel"][0]:init.idx["x"]["uav_vel"][1]]
-    #     self.pld_rel_pos = x_next[init.idx["x"]["pld_rel_pos"][0]:init.idx["x"]["pld_rel_pos"][1]]
-    #     self.pld_rel_vel = x_next[init.idx["x"]["pld_rel_vel"][0]:init.idx["x"]["pld_rel_vel"][1]]
+#         f = ca.Function('sys_dyn',[x,u],[dxdt]) # nonlinear mapping function f(x,u)
+#         x_current = np.vstack((self.pld_rel_pos, self.uav_pos, self.pld_rel_vel, self.uav_vel))
+#         # x_next = util.DM2Arr(util.RK4(f,Ts,x_current,self.u[0,:]))
+#         x_next = util.DM2Arr(util.RK4(f,Ts,x_current,self.f_des))
+#         self.uav_pos = x_next[init.idx["x"]["uav_pos"][0]:init.idx["x"]["uav_pos"][1]]
+#         self.uav_vel = x_next[init.idx["x"]["uav_vel"][0]:init.idx["x"]["uav_vel"][1]]
+#         self.pld_rel_pos = x_next[init.idx["x"]["pld_rel_pos"][0]:init.idx["x"]["pld_rel_pos"][1]]
+#         self.pld_rel_vel = x_next[init.idx["x"]["pld_rel_vel"][0]:init.idx["x"]["pld_rel_vel"][1]]
 
 
-# Uncomment below to test out runMPC class
+# # Uncomment below to test out runMPC class
 # if __name__ == '__main__':
-#     mpc = runMPC()
+#     mpc = runMPC(True)
 #     mpc_maxiter = int(init.sim["duration"]/init.params["control"]["sampleTime"])
 #     mpciter = 0
 
@@ -145,7 +159,13 @@ class runMPC():
 #                  init.params["mission"]["pld_rel_vel"], 
 #                  init.params["mission"]["uav_vel"]))
 
-#     while mpciter < mpc_maxiter: 
+#     i = 0
+#     i_max = init.x_track1.shape[0]
+#     while mpciter < mpc_maxiter:
+#         if i < i_max:
+#             xref = np.vstack((init.x_track1[i,:].reshape((5,1)),np.zeros((5,1))))
+#             i += 1 
+
 #         mpc._solve_mpc(xref)
 #         mpc.get_new_state()
 #         x_next = np.vstack((mpc.pld_rel_pos,
@@ -156,3 +176,4 @@ class runMPC():
 #         mpciter += 1
 
 #     util.plot(mpc.xHist,mpc.uHist,mpc.uHist_ude,init)
+#     util.plot(init.x_preGen,mpc.uHist,mpc.uHist_ude,init)
